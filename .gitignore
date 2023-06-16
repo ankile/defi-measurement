@@ -165,3 +165,7 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# Javascipt
+node_modules/
+package-lock.json

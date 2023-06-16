@@ -1,10 +1,13 @@
+require("dotenv").config();
+
 var ethers = require("ethers");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
-var url =
-  "wss://powerful-quiet-tree.discover.quiknode.pro/a57622ac783ac8de95c780597f3e6b5cc9d609ef/";
-const uri =
-  "mongodb+srv://mempool:3yJqr9L1OJfus8MJ@uniswap-mempool.glkzum9.mongodb.net/?retryWrites=true&w=majority";
+const quiknodeApiKey = process.env.QUIKNODE_API_KEY;
+const mongodbApiKey = process.env.MONGODB_API_KEY;
+
+var url = `wss://powerful-quiet-tree.discover.quiknode.pro/${quiknodeApiKey}/`;
+const uri = `mongodb+srv://mempool:${mongodbApiKey}@uniswap-mempool.glkzum9.mongodb.net/?retryWrites=true&w=majority`;
 
 var uniswapV2RouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 var uniswapV3RouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
@@ -17,6 +20,17 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+function convertHexWeiToGwei(hex) {
+  // Convert hex to a BigNumber instance
+  let bn = ethers.BigNumber.from(hex._hex);
+
+  // Convert the BigNumber to a float
+  let floatValue = parseFloat(ethers.utils.formatUnits(bn, "gwei"));
+
+  // Return the float
+  return floatValue;
+}
 
 var totalTransactions = 0;
 var uniswapV2Transactions = 0;
@@ -64,9 +78,21 @@ var init = async function () {
         // Add timestamp to transaction
         transaction.timestamp = Date.now();
 
+        let date = new Date(transaction.timestamp);
+
+        transaction.formattedDate = date.toISOString();
+
+        // Convert gasPrice, maxPriorityFeePerGas, and maxFeePerGas to Gwei
+        transaction.gasPriceRaw = transaction.gasPrice;
+        transaction.gasPrice = convertHexWeiToGwei(transaction.gasPrice);
+
+        // Convert gasLimit to a number
+        transaction.gasLimitRaw = transaction.gasLimit;
+        transaction.gasLimit = parseInt(transaction.gasLimit);
+
         // Insert transaction into the appropriate collection
         client
-          .db()
+          .db("mempool-v4")
           .collection(collection)
           .insertOne(transaction, function (err, res) {
             if (err) throw err;

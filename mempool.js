@@ -37,12 +37,26 @@ const init = async function () {
 
   console.log("Connected to MongoDB!");
 
+  const mempool = client.db("transactions").collection("mempool");
+
   // Print initial message
   process.stdout.write(
     `Total Transactions: ${totalTransactions} | Uniswap V2 Transactions: ${uniswapV2Transactions} | Uniswap V3 Transactions: ${uniswapV3Transactions}`
   );
 
   var customWsProvider = new ethers.providers.WebSocketProvider(url);
+
+  customWsProvider._websocket.on("error", async () => {
+    console.log(`Unable to connect to ${ep.subdomain} retrying in 3s...`);
+    setTimeout(init, 3000);
+  });
+  customWsProvider._websocket.on("close", async (code) => {
+    console.log(
+      `Connection lost with code ${code}! Attempting reconnect in 3s...`
+    );
+    customWsProvider._websocket.terminate();
+    setTimeout(init, 3000);
+  });
 
   customWsProvider.on("pending", (tx) => {
     customWsProvider.getTransaction(tx).then(function (transaction) {
@@ -56,17 +70,20 @@ const init = async function () {
           transaction.to.toLowerCase() === uniswapV3RouterAddress.toLowerCase())
       ) {
         // Determine collection based on contract address
-        var collection =
+        let uniswapVersion =
           transaction.to.toLowerCase() === uniswapV2RouterAddress.toLowerCase()
             ? "v2"
             : "v3";
 
         // Increment transactions for the appropriate collection
-        if (collection === "v2") {
+        if (uniswapVersion === "v2") {
           uniswapV2Transactions++;
         } else {
           uniswapV3Transactions++;
         }
+
+        // Add Uniswap version to transaction
+        transaction.uniswapVersion = uniswapVersion;
 
         // Add timestamp to transaction
         transaction.timestamp = Date.now();
@@ -84,12 +101,9 @@ const init = async function () {
         transaction.gasLimit = parseInt(transaction.gasLimit);
 
         // Insert transaction into the appropriate collection
-        client
-          .db("mempool-v4")
-          .collection(collection)
-          .insertOne(transaction, function (err, res) {
-            if (err) throw err;
-          });
+        mempool.insertOne(transaction, function (err, res) {
+          if (err) throw err;
+        });
       }
     });
     // Log total transactions and Uniswap transactions
@@ -98,18 +112,6 @@ const init = async function () {
     process.stdout.write(
       `\rTotal Transactions: ${totalTransactions} | Uniswap V2 Transactions: ${uniswapV2Transactions} | Uniswap V3 Transactions: ${uniswapV3Transactions}`
     );
-
-    customWsProvider._websocket.on("error", async () => {
-      console.log(`Unable to connect to ${ep.subdomain} retrying in 3s...`);
-      setTimeout(init, 3000);
-    });
-    customWsProvider._websocket.on("close", async (code) => {
-      console.log(
-        `Connection lost with code ${code}! Attempting reconnect in 3s...`
-      );
-      customWsProvider._websocket.terminate();
-      setTimeout(init, 3000);
-    });
   });
 };
 

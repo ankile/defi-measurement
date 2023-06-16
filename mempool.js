@@ -1,25 +1,19 @@
 require("dotenv").config();
 
 var ethers = require("ethers");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient } = require("mongodb");
 
 const quiknodeApiKey = process.env.QUIKNODE_API_KEY;
-const mongodbApiKey = process.env.MONGODB_API_KEY;
+const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
 
 var url = `wss://powerful-quiet-tree.discover.quiknode.pro/${quiknodeApiKey}/`;
-const uri = `mongodb+srv://mempool:${mongodbApiKey}@uniswap-mempool.glkzum9.mongodb.net/?retryWrites=true&w=majority`;
+const uri = mongodbConnectionString;
 
-var uniswapV2RouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
-var uniswapV3RouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+const uniswapV2RouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+const uniswapV3RouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
+const client = new MongoClient(uri);
 
 function convertHexWeiToGwei(hex) {
   // Convert hex to a BigNumber instance
@@ -32,17 +26,16 @@ function convertHexWeiToGwei(hex) {
   return floatValue;
 }
 
-var totalTransactions = 0;
-var uniswapV2Transactions = 0;
-var uniswapV3Transactions = 0;
+let totalTransactions = 0;
+let uniswapV2Transactions = 0;
+let uniswapV3Transactions = 0;
 
-var init = async function () {
+const init = async function () {
   console.log("Connecting to MongoDB...");
 
   await client.connect();
 
-  await client.db("admin").command({ ping: 1 });
-  console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  console.log("Connected to MongoDB!");
 
   // Print initial message
   process.stdout.write(

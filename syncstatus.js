@@ -1,7 +1,14 @@
-const ethers = require("ethers");
+const provider = new ethers.providers.HttpProvider("http://localhost:8545");
+const signer = provider.getSigner();
 
-const provider = new ethers.providers.WebSocketProvider("ws://127.0.0.1:8546");
+async function getSyncStatus() {
+  const syncInfo = await signer.send("eth_syncing");
+  return syncInfo;
+}
 
-const web3 = new ethers.providers.Web3(provider);
+async function main() {
+  const syncStatus = await getSyncStatus();
+  console.log(syncStatus);
+}
 
-console.log(web3.eth.syncing);
+main();

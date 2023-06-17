@@ -1,3 +1,5 @@
+const ethers = require("ethers");
+
 const provider = new ethers.providers.HttpProvider("http://localhost:8545");
 const signer = provider.getSigner();
 

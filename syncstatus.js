@@ -1,5 +1,7 @@
 const ethers = require("ethers");
-const provider = new ethers.providers.HttpProvider("http://localhost:8545");
+
+// Make an HTTP Provider
+const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
 
 const signer = provider.getSigner();
 

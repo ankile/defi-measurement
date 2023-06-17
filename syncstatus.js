@@ -1,6 +1,7 @@
-const ethers = require("ethers");
+const { providers } = require("ethers");
 
-const provider = new ethers.providers.HttpProvider("http://localhost:8545");
+const provider = new providers.HttpProvider("http://localhost:8545");
+
 const signer = provider.getSigner();
 
 async function getSyncStatus() {

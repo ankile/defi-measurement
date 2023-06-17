@@ -45,8 +45,8 @@ const init = async function () {
     nodeWSConnectionString
   );
 
-  customWsProvider._websocket.on("error", async () => {
-    console.log(`Unable to connect to ${ep.subdomain} retrying in 3s...`);
+  customWsProvider._websocket.on("error", async (error) => {
+    console.log(`Unable to connect to node! Attempting reconnect in 3s...`);
     setTimeout(init, 3000);
   });
   customWsProvider._websocket.on("close", async (code) => {

@@ -44,8 +44,11 @@ const init = async function () {
     // Increment the totalTransactions counter
     totalTransactions++;
 
-    // Add the transaction hash to the transactionBuffer
-    transactionBuffer.push(tx);
+    // Add the transaction hash to the transactionBuffer with timestamp
+    transactionBuffer.push({
+      hash: tx,
+      timestamp: Date.now(),
+    });
 
     // Insert all transaction hashes in the buffer into one document in the mempoolHashes collection
     if (transactionBuffer.length === 1000) {

@@ -41,7 +41,7 @@ let uniswapV3Transactions = 0;
 const init = async function () {
   await connectDb();
 
-  const mempool = client.db("transactions-test").collection("mempool");
+  const mempool = client.db("transactions").collection("mempool");
 
   // Print initial message
   process.stdout.write(

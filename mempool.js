@@ -5,6 +5,13 @@ const { MongoClient } = require("mongodb");
 
 const readline = require("readline");
 
+const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
+const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
+
+const BATCH_SIZE = 10;
+const DB = "transactions";
+const COLLECTION = "mempool";
+
 let rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -30,13 +37,6 @@ function printTransactionCounts() {
         .join("\n")}`
   );
 }
-
-const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
-const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
-
-const BATCH_SIZE = 10;
-const DB = "transactions";
-const COLLECTION = "mempool";
 
 // Read the map of contract addresses to contract names from the router_addresses.json file, looks like this:
 /*
@@ -119,11 +119,9 @@ const init = async function () {
       transaction.routerContract = routerContract;
 
       // Add timestamp to transaction
-      transaction.timestamp = Date.now();
-
-      let date = new Date(transaction.timestamp);
-
-      transaction.formattedDate = date.toISOString();
+      const now = new Date();
+      transaction.ts = now;
+      transaction.timestamp = now.getTime();
 
       // Convert gasPrice, maxPriorityFeePerGas, and maxFeePerGas to Gwei
       transaction.gasPriceRaw = transaction.gasPrice;

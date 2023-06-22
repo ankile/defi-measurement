@@ -72,6 +72,7 @@ let totalTransactions = 0;
 let uniswapTransactionCount = 0;
 let transactionBatch = [];
 let lastDatabaseWrite = new Date();
+let transactionHashes = new Set();
 
 // Create object to track transaction count for each of the Uniswap router versions in the map
 let transactionCounts = Object.fromEntries(
@@ -106,6 +107,14 @@ const init = async function () {
       if (!routerContract) {
         return;
       }
+
+      // If the transaction has already been seen, return
+      if (transactionHashes.has(transaction.hash)) {
+        return;
+      }
+
+      // Add transaction hash to set
+      transactionHashes.add(transaction.hash);
 
       // Increment transactions for the appropriate collection
       transactionCounts[routerContract]++;
@@ -164,6 +173,9 @@ const init = async function () {
 
         // Clear the transaction batch
         transactionBatch = [];
+
+        // Clear the transaction hashes
+        transactionHashes = new Set();
 
         // Update last database write time
         lastDatabaseWrite = new Date();

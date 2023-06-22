@@ -52,7 +52,9 @@ const uniswapRouterAddressesLowercase = Object.fromEntries(
 );
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(mongodbConnectionString);
+const client = new MongoClient(mongodbConnectionString, {
+  appname: "mempool.js",
+});
 
 function convertHexWeiToGwei(hex) {
   // Convert hex to a BigNumber instance
@@ -197,13 +199,6 @@ const init = async function () {
     readline.clearScreenDown(rl);
     rl.write("Connecting to MongoDB...");
     try {
-      // First, check if the connection is already established
-      if (client.isConnected()) {
-        rl.write(" Already connected to MongoDB!\n");
-        // Close the connection
-        await client.close();
-      }
-
       await client.connect();
       rl.write(" Connected to MongoDB!\n");
     } catch (err) {

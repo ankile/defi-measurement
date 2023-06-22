@@ -175,7 +175,7 @@ const init = async function () {
         transactionBatch = [];
 
         // Clear the transaction hashes
-        transactionHashes = new Set();
+        transactionHashes.clear();
 
         // Update last database write time
         lastDatabaseWrite = new Date();

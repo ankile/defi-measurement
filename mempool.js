@@ -164,7 +164,7 @@ const init = async function () {
         try {
           await mempool.bulkWrite(operations);
         } catch (err) {
-          const errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
+          let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
           errMsg += `\n\n ${err}`;
           errMsg += `\n\nTransaction batch: ${JSON.stringify(
             transactionBatch,

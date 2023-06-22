@@ -112,7 +112,8 @@ const init = async function () {
       uniswapTransactionCount++;
 
       // Set id to transaction hash
-      processFields(transaction, routerContract);
+      const now = new Date();
+      processFields(transaction, routerContract, now);
 
       transactionBatch.push(transaction);
 
@@ -209,7 +210,7 @@ async function writeBatchToDb(mempool, transactionBatch) {
   }
 }
 
-function processFields(transaction, routerContract) {
+function processFields(transaction, routerContract, now) {
   transaction._id = transaction.hash;
 
   // Add Uniswap version to transaction

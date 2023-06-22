@@ -10,9 +10,9 @@ export const load = (async () => {
 
 	const documentCount = await collection.estimatedDocumentCount();
 
-	if (documentCount) {
-		return { documentCount };
-	}
+	// Find when the latest document was created
+	const newestDocument = await collection.findOne({}, { sort: { ts: -1 } });
+	const lastUpdated = newestDocument?.ts ?? 0;
 
-	throw error(404, 'Not found');
+	return { documentCount, lastUpdated };
 }) satisfies PageServerLoad;

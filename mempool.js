@@ -14,7 +14,6 @@ const uniswapRouterAddresses = require("./router_addresses.json");
 const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
 const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
 
-const BATCH_SIZE = 10;
 const DB = "transactions";
 const COLLECTION = "mempool";
 
@@ -84,6 +83,9 @@ const init = async function () {
 
   const mempool = client.db(DB).collection(COLLECTION);
 
+  // Populate the transactionHashes set with all the transactions in the database
+  transactionHashes = new Set(await mempool.distinct("_id"));
+
   const customWsProvider = new ethers.providers.WebSocketProvider(
     nodeWSConnectionString,
   );
@@ -151,17 +153,9 @@ const init = async function () {
 
       // Save to database every second
       if (lastDatabaseWrite.getTime() + 10000 < now.getTime()) {
-        // Upsert the batch into the database
-        let operations = transactionBatch.map((transaction) => ({
-          updateOne: {
-            filter: { _id: transaction._id },
-            update: { $set: transaction },
-            upsert: true,
-          },
-        }));
-
+        // Insert the batch of transactions into the database
         try {
-          await mempool.bulkWrite(operations);
+          await mempool.insertMany(transactionBatch);
         } catch (err) {
           let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
           errMsg += `\n\n ${err}`;
@@ -176,9 +170,6 @@ const init = async function () {
 
         // Clear the transaction batch
         transactionBatch = [];
-
-        // Clear the transaction hashes
-        transactionHashes.clear();
 
         // Update last database write time
         lastDatabaseWrite = new Date();

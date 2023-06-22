@@ -8,7 +8,7 @@ export const load = (async () => {
 	const db = client.db('transactions');
 	const collection = db.collection('mempool');
 
-	const documentCount = await collection.countDocuments();
+	const documentCount = await collection.estimatedDocumentCount();
 
 	if (documentCount) {
 		return { documentCount };

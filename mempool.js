@@ -70,6 +70,8 @@ function convertHexWeiToGwei(hex) {
 
 let totalTransactions = 0;
 let uniswapTransactionCount = 0;
+let transactionBatch = [];
+let lastDatabaseWrite = new Date();
 
 // Create object to track transaction count for each of the Uniswap router versions in the map
 let transactionCounts = Object.fromEntries(
@@ -87,8 +89,6 @@ const init = async function () {
   );
 
   connectErrorHandlers();
-
-  transactionBatch = [];
 
   customWsProvider.on("pending", (tx) => {
     customWsProvider.getTransaction(tx).then(async function (transaction) {
@@ -141,8 +141,8 @@ const init = async function () {
 
       transactionBatch.push(transaction);
 
-      // If the batch size has been reached, insert the batch into the database
-      if (transactionBatch.length >= BATCH_SIZE) {
+      // Save to database every second
+      if (lastDatabaseWrite.getTime() + 1000 < now.getTime()) {
         // Upsert the batch into the database
         let operations = transactionBatch.map((transaction) => ({
           updateOne: {

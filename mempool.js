@@ -84,7 +84,7 @@ const init = async function () {
   const mempool = client.db(DB).collection(COLLECTION);
 
   // Populate the transactionHashes set with all the transactions in the database
-  transactionHashes = new Set(await mempool.distinct("_id"));
+  transactionHashes = new Set(await mempool.find().map((tx) => tx.hash));
 
   const customWsProvider = new ethers.providers.WebSocketProvider(
     nodeWSConnectionString,

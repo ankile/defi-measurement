@@ -70,7 +70,6 @@ let totalTransactions = 0;
 let uniswapTransactionCount = 0;
 let transactionBatch = [];
 let lastDatabaseWrite = new Date();
-let transactionHashes = new Set();
 
 // Create object to track transaction count for each of the Uniswap router versions in the map
 let transactionCounts = Object.fromEntries(
@@ -84,7 +83,6 @@ const init = async function () {
   const mempool = client.db(DB).collection(COLLECTION);
 
   // Populate the transactionHashes set with all the transactions in the database
-  transactionHashes = new Set(await mempool.find().map((tx) => tx.hash));
 
   const customWsProvider = new ethers.providers.WebSocketProvider(
     nodeWSConnectionString,
@@ -108,14 +106,6 @@ const init = async function () {
       if (!routerContract) {
         return;
       }
-
-      // If the transaction has already been seen, return
-      if (transactionHashes.has(transaction.hash)) {
-        return;
-      }
-
-      // Add transaction hash to set
-      transactionHashes.add(transaction.hash);
 
       // Increment transactions for the appropriate collection
       transactionCounts[routerContract]++;
@@ -153,23 +143,37 @@ const init = async function () {
 
       // Save to database every second
       if (lastDatabaseWrite.getTime() + 10000 < now.getTime()) {
-        // Insert the batch of transactions into the database
+        // Upsert the batch into the database
+        let operations = transactionBatch.map((transaction) => ({
+          updateOne: {
+            filter: { _id: transaction._id },
+            update: { $set: transaction },
+            upsert: true,
+          },
+        }));
+
         try {
-          await mempool.insertMany(transactionBatch);
+          await mempool.bulkWrite(operations, { ordered: false });
         } catch (err) {
-          let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
-          errMsg += `\n\n ${err}`;
-          errMsg += `\n\nTransaction batch:\n${transactionBatch
-            .map((t) => t.hash)
-            .join("\n")}}`;
-          console.log(err);
-          await sendEmail("MongoDB write error", errMsg);
-          await client.close(); // Close the possibly broken connection
-          // await connectDb(); // Try to reconnect
+          // If the error is not a duplicate key error, send an email
+          if (!err.message.includes("E11000")) {
+            let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
+            errMsg += `\n\n ${err}`;
+            errMsg += `\n\nTransaction batch:\n${transactionBatch
+              .map((t) => t.hash)
+              .join("\n")}}`;
+            console.log(err);
+            await sendEmail("MongoDB write error", errMsg);
+            await client.close(); // Close the possibly broken connection
+            // await connectDb(); // Try to reconnect
+          }
         }
 
         // Clear the transaction batch
         transactionBatch = [];
+
+        // Clear the transaction hashes
+        transactionHashes.clear();
 
         // Update last database write time
         lastDatabaseWrite = new Date();

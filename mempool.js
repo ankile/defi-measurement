@@ -112,62 +112,13 @@ const init = async function () {
       uniswapTransactionCount++;
 
       // Set id to transaction hash
-      transaction._id = transaction.hash;
-
-      // Add Uniswap version to transaction
-      transaction.routerContract = routerContract;
-
-      // Add timestamp to transaction
-      const now = new Date();
-      transaction.ts = now;
-      transaction.timestamp = now.getTime();
-
-      // Convert gasPrice, maxPriorityFeePerGas, and maxFeePerGas to Gwei
-      transaction.gasPriceRaw = transaction.gasPrice;
-      transaction.gasPrice = convertHexWeiToGwei(transaction.gasPrice);
-
-      // Convert gasLimit to a number
-      transaction.gasLimitRaw = transaction.gasLimit;
-      transaction.gasLimit = parseInt(transaction.gasLimit);
-
-      // Add boolean to indicate if to address was checksummed
-      transaction.toChecksummed =
-        transaction.to === transaction.to.toLowerCase();
-
-      transaction.totalTransactionsSeen = totalTransactions;
-      transaction.uniswapTransactionCount = uniswapTransactionCount;
-      transaction.uniswapShareOfTotal =
-        uniswapTransactionCount / totalTransactions;
+      processFields(transaction, routerContract);
 
       transactionBatch.push(transaction);
 
       // Save to database every second
       if (lastDatabaseWrite.getTime() + 10000 < now.getTime()) {
-        // Upsert the batch into the database
-        let operations = transactionBatch.map((transaction) => ({
-          updateOne: {
-            filter: { _id: transaction._id },
-            update: { $set: transaction },
-            upsert: true,
-          },
-        }));
-
-        try {
-          await mempool.bulkWrite(operations, { ordered: false });
-        } catch (err) {
-          // If the error is not a duplicate key error, send an email
-          if (!err.message.includes("E11000")) {
-            let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
-            errMsg += `\n\n ${err}`;
-            errMsg += `\n\nTransaction batch:\n${transactionBatch
-              .map((t) => t.hash)
-              .join("\n")}}`;
-            console.log(err);
-            await sendEmail("MongoDB write error", errMsg);
-            await client.close(); // Close the possibly broken connection
-            // await connectDb(); // Try to reconnect
-          }
-        }
+        await writeBatchToDb(mempool, transactionBatch);
 
         // Clear the transaction batch
         transactionBatch = [];
@@ -232,3 +183,54 @@ process.on("uncaughtException", async (err) => {
 });
 
 init();
+
+async function writeBatchToDb(mempool, transactionBatch) {
+  // Upsert the batch into the database
+  let operations = transactionBatch.map((transaction) => ({
+    insertOne: { document: transaction },
+  }));
+
+  try {
+    await mempool.bulkWrite(operations, { ordered: false });
+  } catch (err) {
+    // If the error is not a duplicate key error, send an email
+    if (!err.message.includes("E11000")) {
+      let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
+      errMsg += `\n\n ${err}`;
+      errMsg += `\n\nTransaction batch:\n${transactionBatch
+        .map((t) => t.hash)
+        .join("\n")}}`;
+      console.log(err);
+      await sendEmail("MongoDB write error", errMsg);
+      await client.close();
+
+      // await connectDb(); // Try to reconnect
+    }
+  }
+}
+
+function processFields(transaction, routerContract) {
+  transaction._id = transaction.hash;
+
+  // Add Uniswap version to transaction
+  transaction.routerContract = routerContract;
+
+  // Add timestamp with timezone to transaction
+  transaction.ts = now;
+  transaction.timestamp = now.getTime();
+
+  // Convert gasPrice, maxPriorityFeePerGas, and maxFeePerGas to Gwei
+  transaction.gasPriceRaw = transaction.gasPrice;
+  transaction.gasPrice = convertHexWeiToGwei(transaction.gasPrice);
+
+  // Convert gasLimit to a number
+  transaction.gasLimitRaw = transaction.gasLimit;
+  transaction.gasLimit = parseInt(transaction.gasLimit);
+
+  // Add boolean to indicate if to address was checksummed
+  transaction.toChecksummed = transaction.to === transaction.to.toLowerCase();
+
+  transaction.totalTransactionsSeen = totalTransactions;
+  transaction.uniswapTransactionCount = uniswapTransactionCount;
+  transaction.uniswapShareOfTotal = uniswapTransactionCount / totalTransactions;
+}

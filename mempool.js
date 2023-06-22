@@ -30,8 +30,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-console.l;
-
 async function sendEmail(subject, text) {
   let info = await transporter.sendMail({
     from: process.env.EMAIL_USER,
@@ -47,7 +45,6 @@ let rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
-exports.rl = rl;
 
 // Make a copy of the map where all the keys are lowercase
 const uniswapRouterAddressesLowercase = Object.fromEntries(
@@ -166,11 +163,9 @@ const init = async function () {
         } catch (err) {
           let errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
           errMsg += `\n\n ${err}`;
-          errMsg += `\n\nTransaction batch: ${JSON.stringify(
-            transactionBatch,
-            null,
-            2,
-          )}`;
+          errMsg += `\n\nTransaction batch:\n${transactionBatch
+            .map((t) => t.hash)
+            .join("\n")}}`;
           console.log(err);
           await sendEmail("MongoDB write error", errMsg);
           await client.close(); // Close the possibly broken connection
@@ -202,13 +197,20 @@ const init = async function () {
     readline.clearScreenDown(rl);
     rl.write("Connecting to MongoDB...");
     try {
+      // First, check if the connection is already established
+      if (client.isConnected()) {
+        rl.write(" Already connected to MongoDB!\n");
+        // Close the connection
+        await client.close();
+      }
+
       await client.connect();
       rl.write(" Connected to MongoDB!\n");
     } catch (err) {
       const errMsg = `Failed to connect to MongoDB with error: ${err}. Retrying in 3s...`;
       console.log(errMsg);
       await sendEmail("MongoDB connection error", errMsg);
-      setTimeout(connectDb, 1000);
+      // setTimeout(connectDb, 1000);
     }
   }
 
@@ -217,14 +219,14 @@ const init = async function () {
       console.log(
         `Unable to connect to node with error ${error}! Attempting reconnect in 3s...`,
       );
-      setTimeout(init, 1000);
+      // setTimeout(init, 1000);
     });
     customWsProvider._websocket.on("close", async (code) => {
       console.log(
         `Connection lost with code ${code}! Attempting reconnect in 3s...`,
       );
       customWsProvider._websocket.terminate();
-      setTimeout(init, 1000);
+      // setTimeout(init, 1000);
     });
   }
 };
@@ -235,7 +237,10 @@ process.on("uncaughtException", async (err) => {
   console.log(errMsg);
   await sendEmail("Uncaught exception", errMsg);
 
-  // Restart the process
+  // Close all open connections
+  await client.close();
+
+  // Kill the process
   process.exit(1);
 });
 

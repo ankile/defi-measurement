@@ -165,6 +165,9 @@ const init = async function () {
         // Clear the transaction batch
         transactionBatch = [];
 
+        // Update last database write time
+        lastDatabaseWrite = new Date();
+
         // Print transaction counts
         printTransactionCounts(
           rl,

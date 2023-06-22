@@ -151,7 +151,7 @@ const init = async function () {
       transactionBatch.push(transaction);
 
       // Save to database every second
-      if (lastDatabaseWrite.getTime() + 1000 < now.getTime()) {
+      if (lastDatabaseWrite.getTime() + 10000 < now.getTime()) {
         // Upsert the batch into the database
         let operations = transactionBatch.map((transaction) => ({
           updateOne: {
@@ -165,10 +165,16 @@ const init = async function () {
           await mempool.bulkWrite(operations);
         } catch (err) {
           const errMsg = `Failed to write to MongoDB with error: ${err}. Retrying connection...`;
-          console.log(errMsg);
+          errMsg += `\n\n ${err}`;
+          errMsg += `\n\nTransaction batch: ${JSON.stringify(
+            transactionBatch,
+            null,
+            2,
+          )}`;
+          console.log(err);
           await sendEmail("MongoDB write error", errMsg);
           await client.close(); // Close the possibly broken connection
-          await connectDb(); // Try to reconnect
+          // await connectDb(); // Try to reconnect
         }
 
         // Clear the transaction batch

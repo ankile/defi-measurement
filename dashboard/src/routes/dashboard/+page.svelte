@@ -6,4 +6,4 @@
 
 <h1>Dashboard!</h1>
 
-<h2>Number of documents {data.documentCount}</h2>
+<h2>Number of documents (estimate) {data.documentCount}</h2>

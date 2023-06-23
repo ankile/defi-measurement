@@ -1,8 +1,7 @@
+import clientPromise from '$lib/mongo';
 import type { PageServerLoad } from './$types';
 
-import clientPromise from '$lib/mongo';
-
-export const load = (async ({ depends }) => {
+export const load: PageServerLoad = async ({ depends }) => {
 	const client = await clientPromise;
 	const db = client.db('transactions');
 	const collection = db.collection('mempool');
@@ -16,4 +15,4 @@ export const load = (async ({ depends }) => {
 	depends('document-count');
 
 	return { documentCount, lastUpdated };
-}) satisfies PageServerLoad;
+};

@@ -1,53 +1,41 @@
-<script>
-	import Header from './Header.svelte';
-	import './styles.css';
+<script lang="ts">
+	let theme = 'light';
+
+	function toggleTheme() {
+		theme = theme === 'light' ? 'dark' : 'light';
+		document.documentElement.setAttribute('data-theme', theme);
+	}
 </script>
 
-<div class="app">
-	<Header />
+<nav>
+	<ul>
+		<li><h3>DEX MEV Dashboard</h3></li>
+	</ul>
+	<ul>
+		<li>
+			<h3>
+				<a href="#top" on:click={toggleTheme}>{theme === 'light' ? '🌚' : '🌞'}</a>
+			</h3>
+		</li>
+	</ul>
+</nav>
 
-	<main>
-		<slot />
-	</main>
-
-	<footer>
-		<p>visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to learn SvelteKit</p>
-	</footer>
-</div>
+<body data-sveltekit-preload-data="hover">
+	<slot />
+</body>
 
 <style>
-	.app {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
+	@import 'https://unpkg.com/@picocss/pico@latest/css/pico.min.css';
+
+	:global(body) {
+		padding: 2rem;
 	}
 
-	main {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		padding: 1rem;
-		width: 100%;
-		max-width: 64rem;
-		margin: 0 auto;
-		box-sizing: border-box;
+	:global(input, button) {
+		border-radius: 1rem;
 	}
 
-	footer {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		padding: 12px;
-	}
-
-	footer a {
-		font-weight: bold;
-	}
-
-	@media (min-width: 480px) {
-		footer {
-			padding: 12px 0;
-		}
+	nav {
+		padding: 0 2rem;
 	}
 </style>

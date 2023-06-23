@@ -1,59 +1,32 @@
-<script>
-	import Counter from './Counter.svelte';
-	import welcome from '$lib/images/svelte-welcome.webp';
-	import welcome_fallback from '$lib/images/svelte-welcome.png';
+<script lang="ts">
+	import { invalidate } from '$app/navigation';
+	import type { PageData } from './$types';
+
+	export let data: PageData;
+
+	// Format the date
+	$: formattedDate = Intl.DateTimeFormat('en-FR', {
+		dateStyle: 'full',
+		timeStyle: 'long'
+	}).format(new Date(data.lastUpdated));
+
+	// Format the number with spaces
+	$: formattedNumber = data.documentCount.toLocaleString('fr-FR');
+
+	let now = new Date().getTime() / 1000;
+	$: lastUpdate = new Date(data.lastUpdated).getTime() / 1000;
+
+	setInterval(() => {
+		now = new Date().getTime() / 1000;
+	}, 1000);
 </script>
 
-<svelte:head>
-	<title>Home</title>
-	<meta name="description" content="Svelte demo app" />
-</svelte:head>
+<h6>Number of transaction</h6>
+<h1>
+	<kbd>{formattedNumber}</kbd>
+</h1>
 
-<section>
-	<h1>
-		<span class="welcome">
-			<picture>
-				<source srcset={welcome} type="image/webp" />
-				<img src={welcome_fallback} alt="Welcome" />
-			</picture>
-		</span>
+<p>Latest update: {formattedDate}</p>
+<p>{Math.max(0, Math.floor(now - lastUpdate))} seconds ago</p>
 
-		to your new<br />SvelteKit app
-	</h1>
-
-	<h2>
-		try editing <strong>src/routes/+page.svelte</strong>
-	</h2>
-
-	<Counter />
-</section>
-
-<style>
-	section {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		flex: 0.6;
-	}
-
-	h1 {
-		width: 100%;
-	}
-
-	.welcome {
-		display: block;
-		position: relative;
-		width: 100%;
-		height: 0;
-		padding: 0 0 calc(100% * 495 / 2048) 0;
-	}
-
-	.welcome img {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		top: 0;
-		display: block;
-	}
-</style>
+<a role="button" href="/" on:click={() => invalidate('document-count')}>Refresh</a>

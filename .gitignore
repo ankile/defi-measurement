@@ -95,7 +95,7 @@ cython_debug/
 .DS_Store
 
 # VSCode
-.vscode/
+.vscode
 
 # Javascipt
 node_modules/

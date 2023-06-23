@@ -1,9 +1,8 @@
-import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 import clientPromise from '$lib/mongo';
 
-export const load = (async () => {
+export const load = (async ({ depends }) => {
 	const client = await clientPromise;
 	const db = client.db('transactions');
 	const collection = db.collection('mempool');
@@ -13,6 +12,8 @@ export const load = (async () => {
 	// Find when the latest document was created
 	const newestDocument = await collection.findOne({}, { sort: { ts: -1 } });
 	const lastUpdated = newestDocument?.ts ?? 0;
+
+	depends('document-count');
 
 	return { documentCount, lastUpdated };
 }) satisfies PageServerLoad;

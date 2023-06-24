@@ -34,3 +34,10 @@ model swaps {
   @@index([to_address], map: "ix_swaps_to_address")
   @@index([transaction_hash], map: "ix_swaps_transaction_hash")
 }
+
+model MempoolTransaction {
+  transaction_hash String   @id @db.VarChar
+  timestamp        DateTime @db.Timestamp(3)
+
+  @@index([timestamp], map: "ix_mempool_transaction_timestamp")
+}

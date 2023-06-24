@@ -1,13 +1,12 @@
-// Import PrismaClient
 import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 type QueryResult = {
   block_number: number;
   mempool_true: number;
   mempool_false: number;
 };
-
-const prisma = new PrismaClient();
 
 async function main() {
   const result: QueryResult[] = await prisma.$queryRaw`
@@ -23,7 +22,7 @@ async function main() {
       block_number ASC;
   `;
 
-  console.log(result);
+  console.log(result.slice(0, 10));
 }
 
 main()

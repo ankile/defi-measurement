@@ -4,7 +4,7 @@ function printTransactionCounts(
   rl,
   totalTransactions,
   uniswapTransactionCount,
-  transactionCounts
+  transactionCounts,
 ) {
   readline.cursorTo(rl, 0, 0);
   readline.clearScreenDown(rl);
@@ -20,9 +20,9 @@ function printTransactionCounts(
             `${routerContract}: ${count} (${(
               (count / uniswapTransactionCount) *
               100
-            ).toFixed(2)}%)`
+            ).toFixed(2)}%)`,
         )
-        .join("\n")}`
+        .join("\n")}`,
   );
 }
 exports.printTransactionCounts = printTransactionCounts;

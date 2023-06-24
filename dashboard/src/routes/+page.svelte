@@ -19,6 +19,14 @@
 	setInterval(() => {
 		now = new Date().getTime() / 1000;
 	}, 1000);
+
+	// Check if this code is running in the browser
+	if (typeof window !== 'undefined') {
+		// Add a interval that will refresh the page every 10 seconds
+		setInterval(() => {
+			invalidate('document-count');
+		}, 10000);
+	}
 </script>
 
 <h6>Number of transaction</h6>

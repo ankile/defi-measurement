@@ -30,3 +30,6 @@
 <p>{Math.max(0, Math.floor(now - lastUpdate))} seconds ago</p>
 
 <a role="button" href="/" on:click={() => invalidate('document-count')}>Refresh</a>
+
+
+

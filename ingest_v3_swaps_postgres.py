@@ -144,13 +144,22 @@ class SwapData(BaseModel):
     blockNumber: int
 
 
-start_block = 17_545_985
-blocks_to_process = 100_000
+# Get start and stop block from the command line
+import argparse
+
+parser = argparse.ArgumentParser(description="Process some integers.")
+parser.add_argument("--start", type=int, help="start block")
+parser.add_argument("--steps", type=int, help="steps to take")
+
+args = parser.parse_args()
 
 swaps_to_insert = []
+swaps_inserted = 0
 
-it = trange(start_block, start_block + blocks_to_process)
+it = trange(args.start, args.start + args.steps, 1 if args.steps > 0 else -1)
 for block_number in it:
+    it.set_description(f"Processing block {block_number:,}")
+
     block = w3.eth.get_block(block_number)
 
     if "transactions" not in block:
@@ -195,14 +204,27 @@ for block_number in it:
             )
 
             swaps_to_insert.append(swap_to_insert)
-            it.set_postfix({"swaps_to_insert": len(swaps_to_insert)})
+            it.set_postfix(
+                {"swaps_to_insert": len(swaps_to_insert), "inserted": swaps_inserted}
+            )
 
     # Checkpoint if we get more than 100 swaps
     if len(swaps_to_insert) > 100:
         # Insert the swaps into the database
         with Session() as session:
             for swap in swaps_to_insert:
-                session.merge(swap)
+                ret = session.merge(swap)
+
+            # Check how many of the swaps were inserted
+            session.flush()
+            swaps_inserted += len(session.new)
             session.commit()
 
         swaps_to_insert = []
+
+# Insert the swaps into the database
+with Session() as session:
+    for swap in swaps_to_insert:
+        session.merge(swap)
+
+    session.commit()

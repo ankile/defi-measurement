@@ -42,6 +42,8 @@ jobs:
           app_location: "./dashboard" # App source code path
           api_location: "dashboard/build/server" # Api source code path - optional
           output_location: "build/static" # Built app content directory - optional
+          skip_app_build: true # Skip build step - optional
+          skip_api_build: true # Skip build step - optional
           ###### End of Repository/Build Configurations ######
         env: # Add environment variables here
           NODE_VERSION: 16

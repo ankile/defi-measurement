@@ -9,6 +9,8 @@ type TransactionCount = {
 };
 
 export const load: PageServerLoad = async () => {
+	console.log('In load (yeet!)');
+
 	const transactionCounts: TransactionCount[] = await prisma.$queryRaw`
     SELECT 
       DATE_TRUNC('hour', first_seen) as hour,
@@ -26,10 +28,14 @@ export const load: PageServerLoad = async () => {
 		})),
 	);
 
+	console.log('Ran query, got results', transactionCounts);
+
 	// Convert big int to number
 	transactionCounts.forEach((row) => {
 		row.transactionCount = Number(row.transactionCount);
 	});
+
+	console.log('Converted big int to number returning');
 
 	return { transactionCounts };
 };

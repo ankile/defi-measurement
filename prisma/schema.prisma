@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model swaps {
+model Swap {
   transaction_hash  String?  @db.VarChar
   block_timestamp   DateTime @db.Timestamp(6)
   block_number      Int
@@ -33,11 +33,13 @@ model swaps {
   @@index([sender], map: "ix_swaps_sender")
   @@index([to_address], map: "ix_swaps_to_address")
   @@index([transaction_hash], map: "ix_swaps_transaction_hash")
+  @@map("swaps")
 }
 
 model MempoolTransaction {
-  transaction_hash String   @id @db.VarChar
-  timestamp        DateTime @db.Timestamp(3)
+  hash      String   @id(map: "MempoolTransaction_pkey") @db.VarChar
+  firstSeen DateTime @map("first_seen") @db.Timestamptz(3)
 
-  @@index([timestamp], map: "ix_mempool_transaction_timestamp")
+  @@index([firstSeen], map: "ix_mempool_transaction_timestamp")
+  @@map("mempool_transactions")
 }

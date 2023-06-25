@@ -20,8 +20,8 @@ web3.on("pending", async (txHash: string) => {
   // Get current time
   const now = new Date();
   transactionBatch.push({
-    transaction_hash: txHash,
-    timestamp: now,
+    hash: txHash,
+    firstSeen: now,
   });
 
   if (transactionBatch.length >= transactionBatchSize) {

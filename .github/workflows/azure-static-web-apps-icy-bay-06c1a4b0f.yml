@@ -16,6 +16,7 @@ jobs:
     name: Build and Deploy Job
     env:
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v3
         with:

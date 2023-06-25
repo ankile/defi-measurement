@@ -40,6 +40,9 @@
 	"type": "module",
 	"dependencies": {
 		"@fontsource/merriweather": "^5.0.3",
-		"chart.js": "^4.3.0"
+		"@prisma/client": "4.16.1",
+		"chart.js": "^4.3.0",
+		"luxon": "^3.3.0",
+		"prisma": "^4.16.1"
 	}
 }

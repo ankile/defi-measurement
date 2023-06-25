@@ -37,9 +37,9 @@ jobs:
         env: # Add environment variables here
           NODE_VERSION: 16
           PRE_BUILD_COMMAND: "npx prisma generate"
-          POST_BUILD_COMMAND: "npm install @prisma/client"
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # POST_BUILD_COMMAND: "npm install @prisma/client"
+          # MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          # DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

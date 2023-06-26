@@ -23,12 +23,15 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: ./dashboard
 
       - name: Prisma generate
         run: npx prisma generate
+        working-directory: ./dashboard
 
       - name: Build
         run: npm run build
+        working-directory: ./dashboard
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

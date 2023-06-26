@@ -204,20 +204,15 @@ for block_number in it:
             )
 
             swaps_to_insert.append(swap_to_insert)
-            it.set_postfix(
-                {"swaps_to_insert": len(swaps_to_insert), "inserted": swaps_inserted}
-            )
+            it.set_postfix({"swaps_to_insert": len(swaps_to_insert)})
 
     # Checkpoint if we get more than 100 swaps
     if len(swaps_to_insert) > 100:
         # Insert the swaps into the database
         with Session() as session:
             for swap in swaps_to_insert:
-                ret = session.merge(swap)
+                session.merge(swap)
 
-            # Check how many of the swaps were inserted
-            session.flush()
-            swaps_inserted += len(session.new)
             session.commit()
 
         swaps_to_insert = []

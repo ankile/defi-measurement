@@ -1,59 +1,40 @@
-name: Azure Static Web Apps CI/CD
+name: Build and Deploy
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
 
 jobs:
-  build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+  build-and-deploy:
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
+
     env:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }} # Used for github auth in Azure Static Web Apps
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
         with:
-          submodules: true
+          node-version: 14
+
       - name: Install dependencies
-        run: cd dashboard && npm install
-      - name: Generate Prisma Client
-        run: cd dashboard && npx prisma generate
-      - name: Build And Deploy
-        id: builddeploy
+        run: npm install
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_BAY_06C1A4B0F }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "./dashboard" # App source code path
           api_location: "dashboard/build/server" # Api source code path - optional
           output_location: "build/static" # Built app content directory - optional
-          # app_build_command: "pnpm run build" # Build command - optional
-          ###### End of Repository/Build Configurations ######
-        env: # Add environment variables here
-          NODE_VERSION: 16
-          PRE_BUILD_COMMAND: "npx prisma generate"
-          # POST_BUILD_COMMAND: "npm install @prisma/client"
-          # MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          # DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request Job
-    steps:
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_BAY_06C1A4B0F }}
-          action: "close"

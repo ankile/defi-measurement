@@ -9,7 +9,7 @@
 
 <nav>
 	<ul>
-		<li><h3>DEX MEV Dashboard</h3></li>
+		<li><h3>DEX MEV Dashboard (Manual)</h3></li>
 	</ul>
 	<ul>
 		<li>

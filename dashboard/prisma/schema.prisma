@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Swap {
+  transaction_hash  String?  @db.VarChar
+  block_timestamp   DateTime @db.Timestamp(6)
+  block_number      Int
+  transaction_index Int
+  log_index         Int
+  sender            String   @db.VarChar
+  recipient         String   @db.VarChar
+  amount0           String   @db.VarChar
+  amount1           String   @db.VarChar
+  sqrtPriceX96      String   @db.VarChar
+  liquidity         String   @db.VarChar
+  tick              String   @db.VarChar
+  address           String   @db.VarChar
+  from_address      String   @db.VarChar
+  to_address        String   @db.VarChar
+  from_mempool      Boolean?
+
+  @@id([block_number, transaction_index, log_index])
+  @@index([address], map: "ix_swaps_address")
+  @@index([block_number], map: "ix_swaps_block_number")
+  @@index([from_address], map: "ix_swaps_from_address")
+  @@index([recipient], map: "ix_swaps_recipient")
+  @@index([sender], map: "ix_swaps_sender")
+  @@index([to_address], map: "ix_swaps_to_address")
+  @@index([transaction_hash], map: "ix_swaps_transaction_hash")
+  @@map("swaps")
+}
+
+model MempoolTransaction {
+  hash      String   @id(map: "MempoolTransaction_pkey") @db.VarChar
+  firstSeen DateTime @map("first_seen") @db.Timestamptz(3)
+
+  @@index([firstSeen], map: "ix_mempool_transaction_timestamp")
+  @@map("mempool_transactions")
+}

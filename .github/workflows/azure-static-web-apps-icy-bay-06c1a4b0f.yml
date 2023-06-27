@@ -38,7 +38,7 @@ jobs:
         env: # Add environment variables here
           NODE_VERSION: 16
           # PRE_BUILD_COMMAND: "npm run prisma:generate"
-          POST_BUILD_COMMAND: "npm run prisma:move"
+          POST_BUILD_COMMAND: "echo 'Generate and copy prisma files:' && pwd && npx prisma generate && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.node ./build/server/sk_render"
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

@@ -43,3 +43,26 @@ model MempoolTransaction {
   @@index([firstSeen], map: "ix_mempool_transaction_timestamp")
   @@map("mempool_transactions")
 }
+
+model SwapV2 {
+  transaction_hash  String   @db.VarChar
+  address           String   @db.VarChar
+  block_timestamp   DateTime @db.Timestamp(6)
+  block_number      Int
+  transaction_index Int
+  log_index         Int
+  sender            String   @db.VarChar
+  amount0_in        String   @db.VarChar
+  amount1_in        String   @db.VarChar
+  amount0_out       String   @db.VarChar
+  amount1_out       String   @db.VarChar
+  to                String   @db.VarChar
+  from_mempool      Boolean
+
+  @@id([block_number, transaction_index, log_index])
+  @@index([address], map: "ix_swaps_v2_address")
+  @@index([block_number], map: "ix_swaps_v2_block_number")
+  @@index([sender], map: "ix_swaps_v2_sender")
+  @@index([transaction_hash], map: "ix_swaps_v2_transaction_hash")
+  @@map("swaps_v2")
+}

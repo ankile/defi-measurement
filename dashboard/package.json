@@ -15,8 +15,8 @@
 		"prisma:move": "echo 'Copying prisme files in: ' && pwd && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.dylib.node ./build/server/sk_render"
 	},
 	"dependencies": {
-		"prisma": "^4.16.1",
-		"@prisma/client": "4.16.1"
+		"@prisma/client": "4.16.1",
+		"prisma": "^4.16.1"
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",

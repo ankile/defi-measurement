@@ -2,6 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Make a Python generator as well
+generator python {
+  provider             = "prisma-client-py"
+  recursive_type_depth = "-1"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

@@ -10,14 +10,18 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
-		"format": "prettier --plugin-search-dir . --write ."
+		"format": "prettier --plugin-search-dir . --write .",
+		"prisma:generate": "echo 'Running generate in: ' && pwd && npx prisma generate",
+		"prisma:move": "echo 'Copying prisme files in: ' && pwd && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.dylib.node ./build/server/sk_render"
+	},
+	"dependencies": {
+		"@prisma/client": "4.16.1"
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",
 		"@fontsource/merriweather": "^5.0.3",
 		"@neoconfetti/svelte": "^1.0.0",
 		"@playwright/test": "^1.28.1",
-		"@prisma/client": "4.16.1",
 		"@sveltejs/adapter-auto": "^2.0.0",
 		"@sveltejs/kit": "^1.5.0",
 		"@types/cookie": "^0.5.1",

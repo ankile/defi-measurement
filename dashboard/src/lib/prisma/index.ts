@@ -1,5 +1,8 @@
+console.log('Loading prisma client');
+
 import { PrismaClient } from '@prisma/client';
 
+console.log('Primsa client loaded');
 // let prismaClient: PrismaClient | null = null;
 
 // export function getPrismaClient() {
@@ -12,6 +15,7 @@ import { PrismaClient } from '@prisma/client';
 // }
 
 const prisma = new PrismaClient();
+console.log('Primsa client instantiated');
 
 export async function getTransactionCounts() {
 	const queryResult: { hour: Date; transactioncount: Number }[] = await prisma.$queryRaw`

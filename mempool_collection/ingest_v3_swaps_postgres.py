@@ -42,18 +42,14 @@ from pymongo import MongoClient, UpdateOne, DESCENDING, ASCENDING, InsertOne, De
 
 load_dotenv(override=True)
 
-# %%
 w3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
 
-
-# %%
 postgres_uri = os.getenv("POSTGRESQL_URI")
 
 assert postgres_uri is not None, "POSTGRESQL_URI is not set in .env file"
 
 engine = create_engine(postgres_uri)
 
-# %%
 # Connect to mongodb
 client = MongoClient(os.getenv("MONGO_URI"))
 
@@ -100,26 +96,6 @@ with open("abi/UniswapV3Pool.json", "r") as f:
     uniswap_v3_pool_abi = json.load(f)
 
 
-def v3_swaps(tx_hash):
-    # Get transaction receipt
-    tx_receipt = w3.eth.get_transaction_receipt(tx_hash)
-
-    liquidity_events = []
-
-    for log in tx_receipt["logs"]:
-        contract = w3.eth.contract(abi=uniswap_v3_pool_abi, address=log["address"])
-
-        # Parse the logs for Swap, Mint, and Burn events
-        try:
-            event_data = contract.events.Swap().process_log(log)
-        except:
-            continue
-
-        liquidity_events.append(event_data)
-
-    return liquidity_events
-
-
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -155,6 +131,27 @@ args = parser.parse_args()
 
 swaps_to_insert = []
 swaps_inserted = 0
+
+
+def v3_swaps(tx_hash):
+    # Get transaction receipt
+    tx_receipt = w3.eth.get_transaction_receipt(tx_hash)
+
+    liquidity_events = []
+
+    for log in tx_receipt["logs"]:
+        contract = w3.eth.contract(abi=uniswap_v3_pool_abi, address=log["address"])
+
+        # Parse the logs for Swap, Mint, and Burn events
+        try:
+            event_data = contract.events.Swap().process_log(log)
+        except:
+            continue
+
+        liquidity_events.append(event_data)
+
+    return liquidity_events
+
 
 it = trange(args.start, args.start + args.steps, 1 if args.steps > 0 else -1)
 for block_number in it:

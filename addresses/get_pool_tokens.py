@@ -1,11 +1,13 @@
 import requests
 import json
+from tqdm import trange
 
 
 query = """
-query topPools {
+query topPools($skip: Int) {
   pools(
-    first: 500
+    first: 1000
+    skip: $skip
     orderBy: totalValueLockedUSD
     orderDirection: desc
     subgraphError: allow
@@ -14,27 +16,39 @@ query topPools {
     __typename
     token0 {symbol}
     token1 {symbol}
+    totalValueLockedUSD
   }
 }
 """
 
 
-def get_pool_tokens():
+def send_query(query, skip=0) -> requests.Response:
     response = requests.post(
         "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",
-        json={"query": query},
+        json={
+            "query": query,
+            "variables": {"skip": skip},
+        },
     )
-
     if response.status_code != 200:
         raise Exception(
             f"The Graph query failed: {response.status_code}", response.text
         )
 
-    # Map the response to a list of dictionaries pool address -> token symbols
-    pools = response.json()["data"]["pools"]
+    return response
+
+
+def get_pool_tokens():
     pool_tokens = {}
-    for pool in pools:
-        pool_tokens[pool["id"]] = [pool["token0"]["symbol"], pool["token1"]["symbol"]]
+
+    for page in trange(0, 6):
+        response = send_query(query, skip=page * 1000)
+        pools = response.json()["data"]["pools"]
+        for pool in pools:
+            pool_tokens[pool["id"]] = [
+                pool["token0"]["symbol"],
+                pool["token1"]["symbol"],
+            ]
 
     return pool_tokens
 

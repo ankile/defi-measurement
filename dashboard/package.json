@@ -15,6 +15,7 @@
 		"prisma:move": "echo 'Copying prisme files in: ' && pwd && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.dylib.node ./build/server/sk_render"
 	},
 	"dependencies": {
+		"prisma": "^4.16.1",
 		"@prisma/client": "4.16.1"
 	},
 	"devDependencies": {
@@ -37,7 +38,6 @@
 		"mongodb": "^5.6.0",
 		"prettier": "^2.8.0",
 		"prettier-plugin-svelte": "^2.8.1",
-		"prisma": "^4.16.1",
 		"set-cookie-parser": "^2.6.0",
 		"svelte": "^4.0.0",
 		"svelte-adapter-azure-swa": "^0.16.0",

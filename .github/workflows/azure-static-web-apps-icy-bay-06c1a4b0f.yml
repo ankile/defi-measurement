@@ -34,9 +34,10 @@ jobs:
           api_location: "dashboard/build/server" # Api source code path - optional
           output_location: "build/static" # Built app content directory - optional
           ###### End of Repository/Build Configurations ######
+
         env: # Add environment variables here
           NODE_VERSION: 16
-          PRE_BUILD_COMMAND: "npm run prisma:generate"
+          # PRE_BUILD_COMMAND: "npm run prisma:generate"
           POST_BUILD_COMMAND: "npm run prisma:move"
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -12,7 +12,7 @@
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
 		"format": "prettier --plugin-search-dir . --write .",
 		"prisma:generate": "echo 'Running generate in: ' && pwd && npx prisma generate",
-		"prisma:move": "echo 'Copying prisme files in: ' && pwd && ls node_modules -al && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.dylib.node ./build/server/sk_render"
+		"prisma:move": "echo 'Generate and copy prisma files:' && pwd && npx prisma generate && cp ./prisma/schema.prisma ./build/server/sk_render/ && cp ./node_modules/.prisma/client/*.dylib.node ./build/server/sk_render"
 	},
 	"dependencies": {
 		"@prisma/client": "4.16.1"

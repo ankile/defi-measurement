@@ -20,6 +20,12 @@
 	</ul>
 </nav>
 
+<ul>
+	<li><a href="/">Home</a></li>
+	<li><a href="/chart">Chart</a></li>
+	<li><a href="/delay-histogram">Delay Histogram</a></li>
+</ul>
+
 <body data-sveltekit-preload-data="hover">
 	<slot />
 </body>

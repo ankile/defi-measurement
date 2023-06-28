@@ -1,21 +1,6 @@
-console.log('Loading prisma client');
-
 import { PrismaClient } from '@prisma/client';
 
-console.log('Primsa client loaded');
-// let prismaClient: PrismaClient | null = null;
-
-// export function getPrismaClient() {
-// 	if (getServerSession()) {
-// 		if (!prismaClient) {
-// 			prismaClient = new PrismaClient();
-// 		}
-// 		return prismaClient;
-// 	}
-// }
-
 const prisma = new PrismaClient();
-console.log('Primsa client instantiated');
 
 export async function getTransactionCounts() {
 	const queryResult: { hour: Date; transactioncount: Number }[] = await prisma.$queryRaw`
@@ -24,6 +9,8 @@ export async function getTransactionCounts() {
       COUNT(hash) as transactionCount
     FROM
       mempool_transactions
+    WHERE
+      DATE_TRUNC('hour', first_seen) < DATE_TRUNC('hour', NOW())
     GROUP BY
       DATE_TRUNC('hour', first_seen)
     ORDER BY
@@ -33,5 +20,32 @@ export async function getTransactionCounts() {
 	return queryResult.map((row) => ({
 		hour: row.hour,
 		transactionCount: row.transactioncount,
+	}));
+}
+
+export async function getMempoolBlockDelayHistogram() {
+	const mempoolBlockDelayHistogram: { diffInSeconds: Number; frequency: Number }[] =
+		await prisma.$queryRaw`
+    SELECT 
+        EXTRACT(EPOCH FROM (swaps.block_timestamp - date_trunc('second', mempool_transactions.first_seen))) AS diffInSeconds,
+        COUNT(*) AS frequency
+    FROM
+        swaps
+    INNER JOIN 
+        mempool_transactions 
+        ON swaps.transaction_hash = mempool_transactions.hash
+    GROUP BY
+      diffInSeconds
+    HAVING 
+        EXTRACT(EPOCH FROM (swaps.block_timestamp - date_trunc('second', mempool_transactions.first_seen))) <= 35
+    ORDER BY
+      diffInSeconds ASC;
+  `;
+
+	// Convert from bigints to numbers before returning
+
+	return mempoolBlockDelayHistogram.map((row) => ({
+		diffInSeconds: Number(row.diffinseconds),
+		frequency: Number(row.frequency),
 	}));
 }

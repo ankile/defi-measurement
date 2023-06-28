@@ -9,7 +9,7 @@ datasource db {
 
 model Swap {
   transaction_hash  String?  @db.VarChar
-  block_timestamp   DateTime @db.Timestamp(6)
+  block_timestamp   DateTime @db.Timestamptz(3)
   block_number      Int
   transaction_index Int
   log_index         Int

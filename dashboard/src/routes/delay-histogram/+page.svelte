@@ -13,39 +13,26 @@
 
 	export let data: PageData;
 
-	const { transactionCounts } = data;
+	const { delayHistogram } = data;
 
 	onMount(() => {
 		if (browser) {
 			new Chart(chartElement, {
-				type: 'line',
+				type: 'bar',
 				data: {
-					labels: transactionCounts.map((item) =>
-						DateTime.fromJSDate(item.hour).toFormat('yyyy-MM-dd HH:mm'),
-					),
+					labels: delayHistogram.map((item) => item.diffInSeconds),
 					datasets: [
 						{
 							label: 'Transactions per hour',
-							data: transactionCounts.map((item) => item.transactionCount),
+							data: delayHistogram.map((item) => item.frequency),
 							backgroundColor: 'rgba(75, 192, 192, 0.2)', // Translucent teal
 							borderColor: 'rgba(75, 192, 192, 1)', // Teal
-							fill: 'origin', // fills the area under the line
-							tension: 0.1,
 						},
 					],
 				},
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
-					scales: {
-						x: {
-							ticks: {
-								autoSkip: true,
-								maxRotation: 45,
-								minRotation: 45,
-							},
-						},
-					},
 				},
 			});
 		}
@@ -53,7 +40,7 @@
 </script>
 
 <main class="main-container">
-	<h1>Transactions per Hour</h1>
+	<h1>Number of seconds in the mempool before included in a block</h1>
 	<section class="chart-container">
 		<canvas bind:this={chartElement} />
 	</section>

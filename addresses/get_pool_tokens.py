@@ -14,8 +14,14 @@ query topPools($skip: Int) {
   ) {
     id
     __typename
-    token0 {symbol}
-    token1 {symbol}
+    token0 {
+        id
+        symbol
+    }
+    token1 {
+        id
+        symbol
+    }
     totalValueLockedUSD
   }
 }
@@ -45,10 +51,12 @@ def get_pool_tokens():
         response = send_query(query, skip=page * 1000)
         pools = response.json()["data"]["pools"]
         for pool in pools:
-            pool_tokens[pool["id"]] = [
-                pool["token0"]["symbol"],
-                pool["token1"]["symbol"],
-            ]
+            pool_tokens[pool["id"]] = {
+                "name": f"{pool['token0']['symbol']}-{pool['token1']['symbol']}",
+                "totalValueLockedUSD": pool["totalValueLockedUSD"],
+                "token0": pool["token0"]["id"],
+                "token1": pool["token1"]["id"],
+            }
 
     return pool_tokens
 

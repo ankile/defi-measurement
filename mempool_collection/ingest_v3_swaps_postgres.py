@@ -145,8 +145,11 @@ def v3_swaps(tx_hash):
         # Parse the logs for Swap, Mint, and Burn events
         try:
             event_data = contract.events.Swap().process_log(log)
+            print(event_data)
         except:
             continue
+
+        raise Exception("Stop")
 
         liquidity_events.append(event_data)
 

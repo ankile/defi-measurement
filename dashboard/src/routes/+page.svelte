@@ -17,21 +17,27 @@
 		<h1>
 			<kbd>{formatNumber(uniswapV2.count)}</kbd>
 		</h1>
-		<span>Last updated: {formatDate(uniswapV2.latestTimestamp, 'dd-MM-yyyy HH:MM')}</span>
+		<span>First observation: {formatDate(uniswapV2.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(uniswapV2.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
 	</div>
 	<div>
 		<h6>Uniswap V3 Swaps</h6>
 		<h1>
 			<kbd>{formatNumber(uniswapV3.count)}</kbd>
 		</h1>
-		<span>Last updated: {formatDate(uniswapV2.latestTimestamp, 'dd-MM-yyyy HH:MM')}</span>
+		<span>First observation: {formatDate(uniswapV3.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(uniswapV3.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
 	</div>
 	<div>
 		<h6>Mempool Transactions</h6>
 		<h1>
 			<kbd>{formatNumber(mempool.count)}</kbd>
 		</h1>
-		<span>Last updated: {formatDate(uniswapV2.latestTimestamp, 'dd-MM-yyyy HH:MM')}</span>
+		<span>First observation: {formatDate(mempool.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(mempool.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
 	</div>
 </div>
 

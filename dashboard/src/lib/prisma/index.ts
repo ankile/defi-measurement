@@ -52,19 +52,17 @@ export async function getMempoolBlockDelayHistogram() {
 
 export async function getTableCounts() {
 	const [uniswapV2]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
-		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp
+		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
 		FROM swaps_v2;
 	`;
 
-	console.log(uniswapV2);
-
 	const [uniswapV3]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
-		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp
+		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
 		FROM swaps;
 	`;
 
 	const [mempool]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
-		SELECT COUNT(*) as count, MAX(first_seen) as latestTimestamp
+		SELECT COUNT(*) as count, MAX(first_seen) as latestTimestamp, MIN(first_seen) as earliestTimestamp
 		FROM mempool_transactions;
 	`;
 
@@ -72,14 +70,17 @@ export async function getTableCounts() {
 		uniswapV2: {
 			count: Number(uniswapV2.count),
 			latestTimestamp: new Date(uniswapV2.latesttimestamp),
+			earliestTimestamp: new Date(uniswapV2.earliesttimestamp),
 		},
 		uniswapV3: {
 			count: Number(uniswapV3.count),
 			latestTimestamp: new Date(uniswapV3.latesttimestamp),
+			earliestTimestamp: new Date(uniswapV3.earliesttimestamp),
 		},
 		mempool: {
 			count: Number(mempool.count),
 			latestTimestamp: new Date(mempool.latesttimestamp),
+			earliestTimestamp: new Date(mempool.earliesttimestamp),
 		},
 	};
 }

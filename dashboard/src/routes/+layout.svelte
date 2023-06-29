@@ -9,7 +9,7 @@
 
 <nav>
 	<ul>
-		<li><h3>DEX MEV Dashboard (Manual)</h3></li>
+		<li><h3>DEX MEV Dashboard</h3></li>
 	</ul>
 	<ul>
 		<li>
@@ -24,6 +24,7 @@
 	<li><a href="/">Home</a></li>
 	<li><a href="/chart">Chart</a></li>
 	<li><a href="/delay-histogram">Delay Histogram</a></li>
+	<li><a href="/mempool-share">Mempool Share</a></li>
 </ul>
 
 <body data-sveltekit-preload-data="hover">

@@ -16,7 +16,8 @@
 	},
 	"dependencies": {
 		"@prisma/client": "4.16.1",
-		"date-fns": "^2.30.0"
+		"date-fns": "^2.30.0",
+		"highcharts": "^11.1.0"
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",

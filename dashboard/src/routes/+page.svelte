@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { invalidate } from '$app/navigation';
 	import { format as formatDate } from 'date-fns';
+
+	import Highcharts from 'highcharts';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 

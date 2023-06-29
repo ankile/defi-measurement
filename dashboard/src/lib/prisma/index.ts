@@ -84,3 +84,39 @@ export async function getTableCounts() {
 		},
 	};
 }
+
+export async function getSwapsV3MempoolShare() {
+	const queryResult = await prisma.$queryRaw`
+    WITH sums AS (
+      SELECT 
+        block_number,
+      MIN(block_timestamp) as block_timestamp,
+        SUM(CASE WHEN from_mempool = true THEN 1 ELSE 0 END) AS mempool_true, 
+        SUM(CASE WHEN from_mempool = false THEN 1 ELSE 0 END) AS mempool_false,
+        COUNT(*) AS total
+      FROM
+        swaps
+      WHERE block_number > 17552205
+      GROUP BY 
+        block_number
+    )
+    SELECT 
+      block_number,
+      block_timestamp,
+      AVG(mempool_true) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_mempool_true,
+      AVG(mempool_false) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_mempool_false,
+      AVG(total) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_total
+    FROM sums
+    ORDER BY block_number ASC;
+  `.then((result) => {
+		return result.map((row) => ({
+			blockNumber: Number(row.block_number),
+			blockTimestamp: new Date(row.block_timestamp),
+			mempoolTrue: Number(row.avg_mempool_true),
+			mempoolFalse: Number(row.avg_mempool_false),
+			total: Number(row.avg_total),
+		}));
+	});
+
+	return queryResult;
+}

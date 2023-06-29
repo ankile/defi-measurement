@@ -1,43 +1,56 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
 	import type { PageData } from './$types';
+	import { format as formatDate } from 'date-fns';
+
+	import Highcharts from 'highcharts';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 
-	// Format the date
-	$: formattedDate = Intl.DateTimeFormat('en-FR', {
-		dateStyle: 'full',
-		timeStyle: 'long'
-	}).format(new Date(data.lastUpdated));
+	const { uniswapV2, uniswapV3, mempool } = data;
 
-	// Format the number with spaces
-	$: formattedNumber = data.documentCount.toLocaleString('fr-FR');
-
-	let now = new Date().getTime() / 1000;
-	$: lastUpdate = new Date(data.lastUpdated).getTime() / 1000;
-
-	setInterval(() => {
-		now = new Date().getTime() / 1000;
-	}, 1000);
-
-	// Check if this code is running in the browser
-	if (typeof window !== 'undefined') {
-		// Add a interval that will refresh the page every 10 seconds
-		setInterval(() => {
-			invalidate('document-count');
-		}, 10000);
-	}
+	// Format numbers with space as thousand separator
+	const formatNumber = (num: Number) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 </script>
 
-<h6>Number of transaction</h6>
-<h1>
-	<kbd>{formattedNumber}</kbd>
-</h1>
+<div class="grid">
+	<div>
+		<h6>Uniswap V2 Swaps</h6>
+		<h1>
+			<kbd>{formatNumber(uniswapV2.count)}</kbd>
+		</h1>
+		<span>First observation: {formatDate(uniswapV2.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(uniswapV2.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
+	</div>
+	<div>
+		<h6>Uniswap V3 Swaps</h6>
+		<h1>
+			<kbd>{formatNumber(uniswapV3.count)}</kbd>
+		</h1>
+		<span>First observation: {formatDate(uniswapV3.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(uniswapV3.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
+	</div>
+	<div>
+		<h6>Mempool Transactions</h6>
+		<h1>
+			<kbd>{formatNumber(mempool.count)}</kbd>
+		</h1>
+		<span>First observation: {formatDate(mempool.earliestTimestamp, 'dd-MM-yyyy HH:mm')}</span><br
+		/>
+		<span>Last observation: {formatDate(mempool.latestTimestamp, 'dd-MM-yyyy HH:mm')}</span>
+	</div>
+</div>
 
-<p>Latest update: {formattedDate}</p>
-<p>{Math.max(0, Math.floor(now - lastUpdate))} seconds ago</p>
+<style>
+	span {
+		font-size: 0.8rem;
+		color: #777;
+		font-style: italic;
+	}
 
-<a role="button" href="/" on:click={() => invalidate('document-count')}>Refresh</a>
-
-
-
+	h1 {
+		margin-bottom: 2rem;
+	}
+</style>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Highcharts from 'highcharts';
+	import Highcharts, { dateFormat } from 'highcharts';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -26,13 +26,9 @@
 				},
 			},
 			xAxis: {
-				categories: blockTimestamp,
-				tickInterval: 200,
-				labels: {
-					formatter: function () {
-						return Highcharts.dateFormat('%d.%m %H:%M', Number(this.value));
-					},
-				},
+				// Format date as "Jun 25 16:31"
+				categories: blockTimestamp.map((date) => dateFormat('%b %e %H:%M', Number(date))),
+				tickInterval: 500,
 			},
 			yAxis: {
 				labels: {

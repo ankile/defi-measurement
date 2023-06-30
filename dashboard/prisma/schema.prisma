@@ -66,3 +66,11 @@ model SwapV2 {
   @@index([transaction_hash], map: "ix_swaps_v2_transaction_hash")
   @@map("swaps_v2")
 }
+
+model transaction_sources {
+  hash    String  @id @db.VarChar
+  mempool Boolean
+
+  @@index([hash], map: "ix_transaction_sources_hash")
+  @@index([mempool], map: "ix_transaction_sources_mempool")
+}

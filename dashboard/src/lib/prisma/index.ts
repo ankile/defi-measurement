@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function getTransactionCounts() {
-	const queryResult: { hour: Date; transactioncount: Number }[] = await prisma.$queryRaw`
+	const queryResult: { hour: Date; transactioncount: number }[] = await prisma.$queryRaw`
     SELECT 
       DATE_TRUNC('hour', first_seen) as hour,
       COUNT(hash) as transactionCount
@@ -19,7 +19,7 @@ export async function getTransactionCounts() {
 
 	return queryResult.map((row) => ({
 		hour: row.hour,
-		transactionCount: row.transactioncount,
+		transactionCount: Number(row.transactioncount),
 	}));
 }
 

@@ -4,7 +4,7 @@ const ethers = require("ethers");
 const { MongoClient } = require("mongodb");
 
 const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
-const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
+const mongodbConnectionString = process.env.MONGO_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(mongodbConnectionString);

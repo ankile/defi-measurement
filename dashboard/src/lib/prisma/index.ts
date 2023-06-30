@@ -24,7 +24,7 @@ export async function getTransactionCounts() {
 }
 
 export async function getMempoolBlockDelayHistogram() {
-	const mempoolBlockDelayHistogram: { diffInSeconds: Number; frequency: Number }[] =
+	const mempoolBlockDelayHistogram: { diffinseconds: Number; frequency: Number }[] =
 		await prisma.$queryRaw`
     SELECT 
         EXTRACT(EPOCH FROM (swaps.block_timestamp - date_trunc('second', mempool_transactions.first_seen))) AS diffInSeconds,
@@ -51,17 +51,17 @@ export async function getMempoolBlockDelayHistogram() {
 }
 
 export async function getTableCounts() {
-	const [uniswapV2]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
+	const [uniswapV2]: Array<{ count: number; latesttimestamp: Date, earliesttimestamp: Date }> = await prisma.$queryRaw`
 		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
 		FROM swaps_v2;
 	`;
 
-	const [uniswapV3]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
+	const [uniswapV3]: Array<{ count: number; latesttimestamp: Date, earliesttimestamp: Date }> = await prisma.$queryRaw`
 		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
 		FROM swaps;
 	`;
 
-	const [mempool]: Array<{ count: number; latesttimestamp: Date }> = await prisma.$queryRaw`
+	const [mempool]: Array<{ count: number; latesttimestamp: Date, earliesttimestamp: Date }> = await prisma.$queryRaw`
 		SELECT COUNT(*) as count, MAX(first_seen) as latestTimestamp, MIN(first_seen) as earliestTimestamp
 		FROM mempool_transactions;
 	`;
@@ -86,7 +86,14 @@ export async function getTableCounts() {
 }
 
 export async function getSwapsV3MempoolShare() {
-	const queryResult = await prisma.$queryRaw`
+	type QueryResultType = {
+		block_number: Number;
+		block_timestamp: Date;
+		avg_mempool_true: Number;
+		avg_mempool_false: Number;
+		avg_total: Number;
+	};
+	const queryResult: QueryResultType[] = await prisma.$queryRaw`
     WITH sums AS (
       SELECT 
         block_number,
@@ -108,15 +115,14 @@ export async function getSwapsV3MempoolShare() {
       AVG(total) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_total
     FROM sums
     ORDER BY block_number ASC;
-  `.then((result) => {
-		return result.map((row) => ({
-			blockNumber: Number(row.block_number),
-			blockTimestamp: new Date(row.block_timestamp),
-			mempoolTrue: Number(row.avg_mempool_true),
-			mempoolFalse: Number(row.avg_mempool_false),
-			total: Number(row.avg_total),
-		}));
-	});
+  `;
 
-	return queryResult;
+  return queryResult.map((row) => ({
+    blockNumber: Number(row.block_number),
+    blockTimestamp: new Date(row.block_timestamp),
+    mempoolTrue: Number(row.avg_mempool_true),
+    mempoolFalse: Number(row.avg_mempool_false),
+    total: Number(row.avg_total),
+  }));
+
 }

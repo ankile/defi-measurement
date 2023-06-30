@@ -12,13 +12,13 @@
 			chart: {
 				type: 'area',
 				renderTo: 'chart-container',
+				height: 700,
 			},
 			title: {
 				useHTML: true,
 				text: 'Share of Uniswap V3 Swaps Originating from the Mempool',
 				align: 'left',
 			},
-
 			accessibility: {
 				point: {
 					valueDescriptionFormat:

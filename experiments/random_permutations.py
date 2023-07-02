@@ -1,7 +1,8 @@
-from functools import partial
 import os
+import pickle
 import random
 import sys
+from functools import partial
 
 current_path = sys.path[0]
 sys.path.append(
@@ -13,14 +14,15 @@ from datetime import datetime
 from typing import List, Tuple, cast
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-
+from matplotlib.ticker import MaxNLocator
 from pool_state import v3Pool
 from sqlalchemy import create_engine
 from tqdm import tqdm, trange
+from pathos.multiprocessing import ProcessingPool as Pool
+
 
 load_dotenv(override=True)
 
@@ -223,30 +225,28 @@ def n_random_permutation(
     swaps_parameters: list,
     n_simulations: int = 5,
 ) -> np.ndarray:
-    # Get the swap parameters
+    # Initialize liquidity in the pool
+    pool.createLiq()
 
-    def run_simulation_with_random_swaps(
-        _, *, pool=pool, swaps_parameters=swaps_parameters
-    ):
-        swaps_parameters_random = swaps_parameters.copy()
-        random.shuffle(swaps_parameters_random)
+    def run_simulation_with_random_swaps(_):
+        swaps_parameters_random = get_swap_params_random(swaps_parameters)
         prices_random = run_simulation(pool, swaps_parameters_random, pbar=False)
         return prices_random
 
-    sim = partial(
-        run_simulation_with_random_swaps,
-        pool=pool,
-        swaps_parameters=swaps_parameters,
-    )
+    n_cores = os.cpu_count()
 
-    results = np.zeros((n_simulations, len(swaps_parameters)), dtype=np.float64)
+    with Pool(n_cores) as p:
+        results = list(
+            tqdm(
+                p.imap(run_simulation_with_random_swaps, range(n_simulations)),
+                total=n_simulations,
+                desc="Running simulations",
+                unit="simulation",
+                leave=False,
+            )
+        )
 
-    for i in trange(
-        n_simulations, desc="Running simulations", unit="simulation", leave=False
-    ):
-        results[i] = sim(i)
-
-    return results
+    return np.array(results)
 
 
 def plot_simulation(
@@ -290,14 +290,52 @@ def plot_simulation(
     # Show the legend containing the number of simulations
     ax.legend([f"{len(results):_} simulations"])
 
+    # Show the plot
+    plt.show()
+
+
+def load_pool(
+    pool_address: str,
+    postgres_uri: str,
+) -> v3Pool:
+    # Check if pool_cache.pickle exists
+    filename = "cache/pool_cache.pickle"
+    if not os.path.exists(filename):
+        with open(filename, "wb") as f:
+            pickle.dump({}, f)
+
+    # Check if we already have this pool in the cache
+    with open(filename, "rb") as f:
+        pool_cache = pickle.load(f)
+        if pool_address in pool_cache:
+            # If it is, load the pool from the cache
+            print("Loading pool from cache")
+            return pool_cache[pool_address]
+
+    # If it's not in the cache, load it and add it to the cache
+    pool = v3Pool(
+        poolAdd=pool_address,
+        connStr=postgres_uri,
+        initialize=False,
+        delete_conn=True,
+    )
+
+    # Add the pool to the cache
+    pool_cache[pool_address] = pool
+
+    # Save the cache
+    with open(filename, "wb") as f:
+        pickle.dump(pool_cache, f)
+
+    return pool
+
 
 def main():
     # Create the pool
     print("Loading pool")
-    pool = v3Pool(
-        poolAdd=usdceth30.pool_address,
-        connStr=postgres_uri,
-        initialize=False,
+    pool = load_pool(
+        pool_address=usdceth30.pool_address,
+        postgres_uri=postgres_uri,
     )
 
     # Get all swaps for this pool
@@ -319,7 +357,7 @@ def main():
 
     # Run the simulation
     print("Running simulation")
-    results = n_random_permutation(pool, swaps_parameters, n_simulations=5)
+    results = n_random_permutation(pool, swaps_parameters, n_simulations=50)
 
     # Plot the simulation
     print("Plotting simulation")

@@ -1,30 +1,31 @@
-import numpy as np
-
+from functools import partial
+import os
+import random
 import sys
 
-import os
-from pool_state import v3Pool
-import numpy as np
-import matplotlib.pyplot as plt
-import random
+current_path = sys.path[0]
+sys.path.append(
+    current_path[: current_path.find("defi-measurement")]
+    + "liquidity-distribution-history"
+)
 
-from typing import TypeVar
 from datetime import datetime
+from typing import List, Tuple, cast
 
-import json
-
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import numpy as np
 import pandas as pd
-from tqdm import tqdm, trange
-
-from sqlalchemy import create_engine
-
 from dotenv import load_dotenv
+
+from pool_state import v3Pool
+from sqlalchemy import create_engine
+from tqdm import tqdm, trange
 
 load_dotenv(override=True)
 
-from enum import Enum
 
-from decimal import Decimal, getcontext, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal, getcontext
 
 getcontext().prec = 100  # Set the precision high enough for our purposes
 
@@ -100,18 +101,10 @@ usdceth30 = PoolInfo(
 
 
 # Read in the environment variables
-postgres_uri = os.getenv("POSTGRESQL_URI_US")
+postgres_uri = os.environ["POSTGRESQL_URI_US"]
 
 if postgres_uri is None:
     raise ValueError("Connection string to Postgres is not set")
-
-
-def add_path():
-    current_path = sys.path[0]
-    sys.path.append(
-        current_path[: current_path.find("defi-measurement")]
-        + "liquidity-distribution-history"
-    )
 
 
 def swaps_from_pool(pool_address: str, after: int = 0):
@@ -121,7 +114,7 @@ def swaps_from_pool(pool_address: str, after: int = 0):
         f"""
             SELECT block_number, transaction_index,
                 log_index, amount0, amount1,
-                sqrtpricex96,tick, tx_hash, block_ts,
+                sqrtpricex96,tick, tx_hash, block_ts
             FROM swaps
             WHERE address = '{pool_address}'
             AND block_number >= {after};
@@ -131,7 +124,7 @@ def swaps_from_pool(pool_address: str, after: int = 0):
     return df
 
 
-def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> pd.Series[int]:
+def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> List[Tuple[int, int]]:
     swap_counts = (
         df.groupby(by=["block_number"])
         .count()
@@ -139,10 +132,14 @@ def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> pd.Series[int]
         .block_ts
     )
 
-    return swap_counts[swap_counts > more_than]
+    swap_counts = swap_counts[swap_counts > more_than]
+
+    swap_count_list = list(swap_counts.reset_index().values.tolist())
+
+    return cast(List[Tuple[int, int]], swap_count_list)
 
 
-def get_swap_df_from_block(df, block_number):
+def get_swap_df_from_block(df, block_number) -> DataFrame[SwapSchema]:
     # Get the swaps for this block
     swaps = df[df.block_number == block_number]
     swaps = swaps.sort_values(by=["transaction_index"])
@@ -156,3 +153,178 @@ def get_swap_df_from_block(df, block_number):
     )
 
     return swaps
+
+
+def run_simulation(pool: v3Pool, swaps_parameters: list, pbar=True) -> np.ndarray:
+    # Make a copy of swaps_parameters
+    swaps_parameters = [s.copy() for s in swaps_parameters]
+
+    # Get the sqrtPriceX96 at the start of the block
+    sqrtPrice_next = pool.getPriceAt(swaps_parameters[0]["as_of"])
+
+    prices = np.zeros(len(swaps_parameters), dtype=np.float64)
+
+    for i, s in tqdm(enumerate(swaps_parameters), disable=not pbar):
+        s["givenPrice"] = sqrtPrice_next
+        _, heur = pool.swapIn(s, fees=True)
+        sqrtPrice_next = heur.sqrtP_next
+        prices[i] = 1 / (heur.sqrt_P**2 / 1e12)
+
+    return prices
+
+
+def plot_prices(prices: np.ndarray, block_number: int, ax=None) -> None:
+    if not ax:
+        _, ax = plt.subplots()
+
+    # Plot the prices
+    ax.plot(prices)
+
+    # Calculate the average price and standard deviation
+    avg_price = np.mean(prices)
+    std_price = np.std(prices)
+
+    # Plot the price at the start of the block
+    ax.axhline(prices[0], color="b", linestyle="--", label=f"$p_0$ = {prices[0]:>7.2f}")
+
+    # Plot the average price
+    ax.axhline(avg_price, color="r", linestyle="--", label=f"$\mu$ = {avg_price:>7.2f}")
+
+    # Plot the standard deviation
+    ax.axhline(avg_price + std_price, color="g", linestyle="--")
+    ax.axhline(
+        avg_price - std_price,
+        color="g",
+        linestyle="--",
+        label=f"$\sigma$ = {std_price:>7.2f}",
+    )
+
+    # Make the x-axis integers
+    ax.set_xticks(np.arange(len(prices)), np.arange(len(prices)))
+
+    # Make the plot nice
+    ax.set_title(f"Price of ETH in USDC for block {block_number:_}")
+    ax.set_xlabel(f"Swap # in block ({len(prices)} total)")
+    ax.set_ylabel("Price (USDC/ETH)")
+
+    ax.legend()
+    ax.grid()
+
+
+def get_swap_params_random(swaps_parameters: list) -> list:
+    swaps_parameters_random = swaps_parameters.copy()
+    random.shuffle(swaps_parameters_random)
+
+    return swaps_parameters_random
+
+
+def n_random_permutation(
+    pool: v3Pool,
+    swaps_parameters: list,
+    n_simulations: int = 5,
+) -> np.ndarray:
+    # Get the swap parameters
+
+    def run_simulation_with_random_swaps(
+        _, *, pool=pool, swaps_parameters=swaps_parameters
+    ):
+        swaps_parameters_random = swaps_parameters.copy()
+        random.shuffle(swaps_parameters_random)
+        prices_random = run_simulation(pool, swaps_parameters_random, pbar=False)
+        return prices_random
+
+    sim = partial(
+        run_simulation_with_random_swaps,
+        pool=pool,
+        swaps_parameters=swaps_parameters,
+    )
+
+    results = np.zeros((n_simulations, len(swaps_parameters)), dtype=np.float64)
+
+    for i in trange(
+        n_simulations, desc="Running simulations", unit="simulation", leave=False
+    ):
+        results[i] = sim(i)
+
+    return results
+
+
+def plot_simulation(
+    results: np.ndarray,
+    pool: v3Pool,
+    block_num: int,
+    swaps_parameters: List[dict],
+) -> None:
+    # Plot every line on the same plot to get the density
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    for i in range(len(results)):
+        ax.plot(results[i], color="black", alpha=0.5)
+
+    # Plot the original order in red
+    prices = run_simulation(pool, swaps_parameters, pbar=False)
+    ax.plot(prices, color="red", label="Original order")
+
+    # Calculate the number of buys and sells
+    n_buys = len([s for s in swaps_parameters if s["tokenIn"] == pool.token0])
+    n_sells = len([s for s in swaps_parameters if s["tokenIn"] == pool.token1])
+
+    # Find the mean of the results and plot it
+    mean = results.mean(axis=0)
+    # ax.plot(mean, color='red', label='Mean')
+
+    # Make the x-axis tick labels integers
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    # Make the plot nice
+    ax.set_title(
+        f"Price of ETH in USDC for block {block_num:_} (buys: {n_buys} / sells: {n_sells})",
+        fontsize=16,
+    )
+    ax.set_xlabel("Swap number")
+    ax.set_ylabel("Price of ETH in USDC")
+    ax.set_xlim(0, len(swaps_parameters))
+    # ax.set_ylim(0.9 * results.min(), 1.1 * results.max())
+    ax.grid(True)
+
+    # Show the legend containing the number of simulations
+    ax.legend([f"{len(results):_} simulations"])
+
+
+def main():
+    # Create the pool
+    print("Loading pool")
+    pool = v3Pool(
+        poolAdd=usdceth30.pool_address,
+        connStr=postgres_uri,
+        initialize=False,
+    )
+
+    # Get all swaps for this pool
+    print("Loading swaps")
+    df = swaps_from_pool(pool.pool, after=int(15e6))
+
+    # Get the swap counts
+    print("Calculating swap counts")
+    swap_counts = swap_count_per_block(df, more_than=4)
+
+    # Get the swaps for the block with the most swaps
+    print("Getting swaps for block with most swaps")
+    block_num = swap_counts[0][0]
+    swap_df = get_swap_df_from_block(df, block_num)
+
+    # Get the swap parameters
+    print("Getting swap parameters")
+    swaps_parameters = get_swap_params(pool, swap_df)
+
+    # Run the simulation
+    print("Running simulation")
+    results = n_random_permutation(pool, swaps_parameters, n_simulations=5)
+
+    # Plot the simulation
+    print("Plotting simulation")
+    plot_simulation(results, pool, block_num, swaps_parameters)
+
+
+if __name__ == "__main__":
+    main()

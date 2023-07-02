@@ -224,6 +224,7 @@ def n_random_permutation(
     pool: v3Pool,
     swaps_parameters: list,
     n_simulations: int = 5,
+    cores: int = -1,
 ) -> np.ndarray:
     # Initialize liquidity in the pool
     pool.createLiq()
@@ -233,9 +234,10 @@ def n_random_permutation(
         prices_random = run_simulation(pool, swaps_parameters_random, pbar=False)
         return prices_random
 
-    n_cores = os.cpu_count()
+    if cores == -1:
+        cores = os.cpu_count() or 1
 
-    with Pool(n_cores) as p:
+    with Pool(cores) as p:
         results = list(
             tqdm(
                 p.imap(run_simulation_with_random_swaps, range(n_simulations)),
@@ -357,7 +359,7 @@ def main():
 
     # Run the simulation
     print("Running simulation")
-    results = n_random_permutation(pool, swaps_parameters, n_simulations=50)
+    results = n_random_permutation(pool, swaps_parameters, n_simulations=50, cores=4)
 
     # Plot the simulation
     print("Plotting simulation")

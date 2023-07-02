@@ -22,7 +22,7 @@
 
 <ul>
 	<li><a href="/">Home</a></li>
-	<li><a href="/chart">Chart</a></li>
+	<li><a href="/mempool-rate">Mempool Rate</a></li>
 	<li><a href="/delay-histogram">Delay Histogram</a></li>
 	<li><a href="/mempool-share">Mempool Share</a></li>
 </ul>

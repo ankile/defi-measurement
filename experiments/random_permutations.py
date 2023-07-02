@@ -1,3 +1,4 @@
+import argparse
 from functools import partial
 import os
 import pickle
@@ -221,17 +222,12 @@ def run_simulation(pool: v3Pool, swaps_parameters: list, pbar=True) -> np.ndarra
     return prices
 
 
-def get_swap_params_random(swaps_parameters: list) -> list:
-    swaps_parameters = swaps_parameters.copy()
-    random.shuffle(swaps_parameters)
-    return swaps_parameters
-
-
 def run_simulation_batch(i, *, pool, swaps_parameters, batch_size):
     results = []
-    for _ in trange(batch_size, desc=f"Batch {i}", leave=True, position=i):
-        swaps_parameters_random = get_swap_params_random(swaps_parameters)
-        prices_random = run_simulation(pool, swaps_parameters_random, pbar=False)
+    swaps_parameters = swaps_parameters.copy()
+    for _ in trange(batch_size, desc=f"Batch {i}", leave=False, position=i):
+        random.shuffle(swaps_parameters)
+        prices_random = run_simulation(pool, swaps_parameters, pbar=False)
         results.append(prices_random)
     return results
 
@@ -347,7 +343,7 @@ def main(
         results = n_random_permutation(
             pool, swaps_parameters, n_simulations=n_simulations, cores=cores
         )
-
+        
         # Plot the simulation
         print("Plotting simulation")
         plot_simulation(
@@ -356,10 +352,47 @@ def main(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--n_blocks",
+        "-b",
+        type=int,
+        default=1,
+        help="Number of blocks to simulate",
+    )
+    parser.add_argument(
+        "--n_simulations",
+        "-s",
+        type=int,
+        default=1000,
+        help="Number of simulations to run",
+    )
+    parser.add_argument(
+        "--cores",
+        "-c",
+        type=int,
+        default=-1,
+        help="Number of cores to use",
+    )
+    parser.add_argument(
+        "--save",
+        type=bool,
+        default=True,
+        help="Save the plot",
+    )
+    parser.add_argument(
+        "--show",
+        type=bool,
+        default=False,
+        help="Show the plot",
+    )
+
+    args = parser.parse_args()
+
     main(
-        n_blocks=10,
-        n_simulations=1000,
-        cores=-1,
-        save=True,
-        show=False,
+        n_blocks=args.n_blocks,
+        n_simulations=args.n_simulations,
+        cores=args.cores,
+        save=args.save,
+        show=args.show,
     )

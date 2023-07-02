@@ -303,6 +303,7 @@ def load_pool(
     # Check if pool_cache.pickle exists
     filename = "cache/pool_cache.pickle"
     if not os.path.exists(filename):
+        os.mkdir("cache")
         with open(filename, "wb") as f:
             pickle.dump({}, f)
 

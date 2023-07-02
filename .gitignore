@@ -104,3 +104,4 @@ pnpm-lock.yaml
 .svelte-kit/
 
 cache
+output

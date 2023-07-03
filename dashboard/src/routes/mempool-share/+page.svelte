@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Highcharts from 'highcharts';
+	import Highcharts, { dateFormat } from 'highcharts';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -12,13 +12,13 @@
 			chart: {
 				type: 'area',
 				renderTo: 'chart-container',
+				height: 700,
 			},
 			title: {
 				useHTML: true,
 				text: 'Share of Uniswap V3 Swaps Originating from the Mempool',
 				align: 'left',
 			},
-
 			accessibility: {
 				point: {
 					valueDescriptionFormat:
@@ -26,13 +26,9 @@
 				},
 			},
 			xAxis: {
-				categories: blockTimestamp,
-				tickInterval: 200,
-				labels: {
-					formatter: function () {
-						return Highcharts.dateFormat('%d.%m %H:%M', Number(this.value));
-					},
-				},
+				// Format date as "Jun 25 16:31"
+				categories: blockTimestamp.map((date) => dateFormat('%b %e %H:%M', Number(date))),
+				tickInterval: 500,
 			},
 			yAxis: {
 				labels: {

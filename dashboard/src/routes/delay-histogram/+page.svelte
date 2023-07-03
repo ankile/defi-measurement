@@ -6,6 +6,7 @@
 
 	import { Chart, registerables } from 'chart.js';
 	import { onMount } from 'svelte';
+	import Highcharts from 'highcharts';
 
 	Chart.register(...registerables);
 
@@ -16,46 +17,64 @@
 	const { delayHistogram } = data;
 
 	onMount(() => {
-		if (browser) {
-			new Chart(chartElement, {
-				type: 'bar',
-				data: {
-					labels: delayHistogram.map((item) => item.diffInSeconds),
-					datasets: [
-						{
-							label: 'Transactions per hour',
-							data: delayHistogram.map((item) => item.frequency),
-							backgroundColor: 'rgba(75, 192, 192, 0.2)', // Translucent teal
-							borderColor: 'rgba(75, 192, 192, 1)', // Teal
+		Highcharts.chart({
+			chart: {
+				renderTo: 'chart-container',
+				type: 'column',
+				// backgroundColor: '#f9f9f9', // Light grey background color
+				height: 700,
+			},
+			title: {
+				useHTML: true,
+				text: 'Number of seconds in the mempool before included in a block',
+				align: 'left',
+			},
+			xAxis: {
+				categories: delayHistogram.map((item) => String(item.diffInSeconds)),
+				title: {
+					text: 'Delay in Seconds',
+				},
+				crosshair: true,
+			},
+			yAxis: {
+				min: 0,
+				title: {
+					text: 'Frequency',
+				},
+			},
+			plotOptions: {
+				bar: {
+					dataLabels: {
+						enabled: true,
+					},
+				},
+			},
+			series: [
+				{
+					name: 'Transactions per hour',
+					type: 'column',
+					data: delayHistogram.map((item) => item.frequency),
+					color: 'rgba(75, 192, 192, 1)', // Teal
+				},
+			],
+			responsive: {
+				rules: [
+					{
+						condition: {
+							maxWidth: 500,
 						},
-					],
-				},
-				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-				},
-			});
-		}
+						chartOptions: {
+							legend: {
+								layout: 'horizontal',
+								align: 'center',
+								verticalAlign: 'bottom',
+							},
+						},
+					},
+				],
+			},
+		});
 	});
 </script>
 
-<main class="main-container">
-	<h1>Number of seconds in the mempool before included in a block</h1>
-	<section class="chart-container">
-		<canvas bind:this={chartElement} />
-	</section>
-</main>
-
-<style>
-	.chart-container {
-		width: 70%;
-		height: 400px; /* or any suitable height */
-		margin: auto;
-	}
-
-	@media (max-width: 1300px) {
-		.chart-container {
-			width: 100%;
-		}
-	}
-</style>
+<div id="chart-container" />

@@ -2,7 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Make a Python generator as well
 generator python {
   provider             = "prisma-client-py"
   recursive_type_depth = "-1"
@@ -15,7 +14,7 @@ datasource db {
 
 model Swap {
   transaction_hash  String?  @db.VarChar
-  block_timestamp   DateTime @db.Timestamp(6)
+  block_timestamp   DateTime @db.Timestamptz(3)
   block_number      Int
   transaction_index Int
   log_index         Int
@@ -71,4 +70,32 @@ model SwapV2 {
   @@index([sender], map: "ix_swaps_v2_sender")
   @@index([transaction_hash], map: "ix_swaps_v2_transaction_hash")
   @@map("swaps_v2")
+}
+
+model PermutationSimulation {
+  block_number                       Int
+  pool_address                       String   @db.VarChar
+  data_location                      String   @db.VarChar
+  figure_location                    String   @db.VarChar
+  ts                                 DateTime @db.Timestamptz(3)
+  n_permutations                     Int
+  n_swaps                            Int?
+  original_std                       Float?
+  mean_permutation_std               Float?
+  original_area                      Float?
+  mean_permutation_area              Float?
+  max_abs_original_deviation         Float?
+  mean_max_abs_permutation_deviation Float?
+
+  @@id([block_number, pool_address, n_permutations], map: "permutation_simulations_pk")
+  @@map("permutation_simulations")
+}
+
+model TransactionSource {
+  hash    String  @id @db.VarChar
+  mempool Boolean
+
+  @@index([hash], map: "ix_transaction_sources_hash")
+  @@index([mempool], map: "ix_transaction_sources_mempool")
+  @@map("transaction_sources")
 }

@@ -127,12 +127,15 @@ export async function getSwapsV3MempoolShare() {
 }
 
 
-export async function getPermutationSimulations() {
+export async function getPermutationSimulations(searchParams: URLSearchParams) {
+  const { orderBy, order, limit, skip } = Object.fromEntries(searchParams.entries());
+
   const queryResult = await prisma.permutationSimulation.findMany({
     orderBy: {
-      nSwaps: 'desc',
+      [orderBy ?? 'nSwaps']: order ?? 'desc',
     },
-    take: 5,
+    take: Number(limit ?? 5),
+    skip: Number(skip ?? 0),
   })
 
   return queryResult;

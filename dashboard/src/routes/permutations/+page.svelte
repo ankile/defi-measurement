@@ -1,16 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import highcharts from '$lib/highcharts-action';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
 	const { simulationData } = data;
-
-	type TooltipData = {
-		points: Array<{
-			y: Number;
-		}>;
-	};
 
 	const chartConfigList = simulationData.map((simulation) => {
 		const { blockNumber, nSwaps, nPermutations, originalPrices, permutationPrices } = simulation;
@@ -83,9 +81,30 @@
 			},
 		};
 	});
+
+
+	onMount(() => {
+		if (browser) {
+			const {url: {searchParams}} = $page;
+
+			// Check if there are any query params
+			if (!(searchParams.has('limit') && searchParams.has('orderBy') && searchParams.has('order') && searchParams.has('skip'))) {
+				
+				// If not, add them
+				let limit = searchParams.get('limit') || 5;
+				let orderBy = searchParams.get('orderBy') || 'nSwaps';
+				let order = searchParams.get('order') || 'desc';
+				let skip = searchParams.get('skip') || 0;
+				
+				goto(`/permutations?limit=${limit}&orderBy=${orderBy}&order=${order}&skip=${skip}`);
+			}
+		}
+	});
 </script>
 
 <h1>Permutations</h1>
+
+<div class="flex" />
 
 {#each chartConfigList as { chartConfig, originalStd, meanPermutationStd, originalArea, meanPermutationArea, maxAbsOriginalDeviation, meanMaxAbsPermutationDeviation }}
 	<div class="container">
@@ -111,13 +130,20 @@
 					<td>Absolute Area to Baseline</td>
 					<td>{Math.round(originalArea * 100) / 100}</td>
 					<td>{Math.round(meanPermutationArea * 100) / 100}</td>
-					<td>{Math.round(((meanPermutationArea - originalArea) / originalArea) * 10000) / 100}%</td>
+					<td>{Math.round(((meanPermutationArea - originalArea) / originalArea) * 10000) / 100}%</td
+					>
 				</tr>
 				<tr>
 					<td>Max Absolute Deviation</td>
 					<td>{Math.round(maxAbsOriginalDeviation * 100) / 100}</td>
 					<td>{Math.round(meanMaxAbsPermutationDeviation * 100) / 100}</td>
-					<td>{Math.round(((meanMaxAbsPermutationDeviation - maxAbsOriginalDeviation) / maxAbsOriginalDeviation) * 10000) / 100}%</td>
+					<td
+						>{Math.round(
+							((meanMaxAbsPermutationDeviation - maxAbsOriginalDeviation) /
+								maxAbsOriginalDeviation) *
+								10000,
+						) / 100}%</td
+					>
 				</tr></tbody
 			>
 		</table>

@@ -14,8 +14,9 @@ async function extractData(run: PermutationSimulation) {
 	};
 }
 
-export const load: PageServerLoad = async () => {
-	const simRuns = await getPermutationSimulations();
+export const load: PageServerLoad = async ({ url: {searchParams} }) => {
+
+	const simRuns = await getPermutationSimulations(searchParams);
 
 	const data = await Promise.all(simRuns.map(extractData));
 

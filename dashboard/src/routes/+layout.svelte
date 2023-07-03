@@ -25,6 +25,7 @@
 	<li><a href="/mempool-rate">Mempool Rate</a></li>
 	<li><a href="/delay-histogram">Delay Histogram</a></li>
 	<li><a href="/mempool-share">Mempool Share</a></li>
+	<li><a href="/permutations">Transaction Order Permutations</a></li>
 </ul>
 
 <body data-sveltekit-preload-data="hover">

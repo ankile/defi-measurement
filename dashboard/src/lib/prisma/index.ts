@@ -124,5 +124,16 @@ export async function getSwapsV3MempoolShare() {
     mempoolFalse: Number(row.avg_mempool_false),
     total: Number(row.avg_total),
   }));
+}
 
+
+export async function getPermutationSimulations() {
+  const queryResult = await prisma.permutationSimulation.findMany({
+    orderBy: {
+      nSwaps: 'desc',
+    },
+    take: 5,
+  })
+
+  return queryResult;
 }

@@ -67,10 +67,30 @@ model SwapV2 {
   @@map("swaps_v2")
 }
 
-model transaction_sources {
+model PermutationSimulation {
+  blockNumber                    Int      @map("block_number")
+  poolAddress                    String   @map("pool_address") @db.VarChar
+  dataLocation                   String   @map("data_location") @db.VarChar
+  figureLocation                 String   @map("figure_location") @db.VarChar
+  ts                             DateTime @map("ts") @db.Timestamptz(3)
+  nPermutations                  Int      @map("n_permutations")
+  nSwaps                         Int      @map("n_swaps")
+  originalStd                    Float    @map("original_std")
+  meanPermutationStd             Float    @map("mean_permutation_std")
+  originalArea                   Float    @map("original_area")
+  meanPermutationArea            Float    @map("mean_permutation_area")
+  maxAbsOriginalDeviation        Float    @map("max_abs_original_deviation")
+  meanMaxAbsPermutationDeviation Float    @map("mean_max_abs_permutation_deviation")
+
+  @@id([blockNumber, poolAddress, nPermutations], map: "permutation_simulations_pk")
+  @@map("permutation_simulations")
+}
+
+model TransactionSource {
   hash    String  @id @db.VarChar
   mempool Boolean
 
   @@index([hash], map: "ix_transaction_sources_hash")
   @@index([mempool], map: "ix_transaction_sources_mempool")
+  @@map("transaction_sources")
 }

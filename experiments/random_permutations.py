@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import json
 import os
 import pickle
 import random
@@ -12,7 +13,7 @@ sys.path.append(
 )
 
 from datetime import datetime
-from typing import List, Tuple, cast
+from typing import Dict, List, Tuple, cast
 from prisma import Client
 import asyncio
 
@@ -132,7 +133,8 @@ def swaps_from_pool(pool_address: str, after: int = 0):
 
 
 def plot_simulation(
-    results: np.ndarray,
+    permutation_prices: np.ndarray,
+    orignal_prices: np.ndarray,
     pool: v3Pool,
     block_num: int,
     swaps_parameters: List[dict],
@@ -143,12 +145,11 @@ def plot_simulation(
     # Plot every line on the same plot to get the density
     _, ax = plt.subplots(figsize=(12, 8))
 
-    for i in range(len(results)):
-        ax.plot(results[i], color="black", alpha=0.05)
+    for i in range(len(permutation_prices)):
+        ax.plot(permutation_prices[i], color="black", alpha=0.05)
 
     # Plot the original order in red
-    prices = run_simulation(pool, swaps_parameters, pbar=False)
-    ax.plot(prices, color="red", label="Original order")
+    ax.plot(orignal_prices, color="red", label="Original order")
 
     # Calculate the number of buys and sells
     n_buys = len([s for s in swaps_parameters if s["tokenIn"] == pool.token0])
@@ -165,11 +166,11 @@ def plot_simulation(
     ax.set_xlabel("Swap number")
     ax.set_ylabel("Price of ETH in USDC")
     ax.set_xlim(0, len(swaps_parameters))
-    # ax.set_ylim(0.9 * results.min(), 1.1 * results.max())
+    # ax.set_ylim(0.9 * permutation_prices.min(), 1.1 * permutation_prices.max())
     ax.grid(True)
 
     # Show the legend containing the number of simulations
-    ax.legend([f"{len(results):_} simulations"])
+    ax.legend([f"{len(permutation_prices):_} simulations"])
 
     # Show the plot
     if save:
@@ -177,6 +178,8 @@ def plot_simulation(
 
     if show:
         plt.show()
+
+    plt.close()
 
 
 def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> List[Tuple[int, int]]:
@@ -306,7 +309,7 @@ def load_pool(
     return pool
 
 
-def save_to_storage(parquet_filename, figure_filename) -> Tuple[str, str]:
+def save_to_storage(data_filename, figure_filename) -> Tuple[str, str]:
     # Set up the Azure blob service client
     blob_service_client = BlobServiceClient.from_connection_string(blobstorage_uri)
 
@@ -319,7 +322,7 @@ def save_to_storage(parquet_filename, figure_filename) -> Tuple[str, str]:
     except:
         print(f"Container '{container_name}' already exists.")
 
-    folder_name = parquet_filename.split("/")[-1].split(".")[0]
+    folder_name = data_filename.split("/")[-1].split(".")[0]
 
     # Set up the blob client for the parquet file
     data_client = blob_service_client.get_blob_client(
@@ -327,7 +330,7 @@ def save_to_storage(parquet_filename, figure_filename) -> Tuple[str, str]:
     )
 
     # Upload the parquet file to the blob
-    with open(parquet_filename, "rb") as data:
+    with open(data_filename, "rb") as data:
         data_client.upload_blob(data, overwrite=True)
 
     # Set up the blob client for the figure
@@ -339,17 +342,15 @@ def save_to_storage(parquet_filename, figure_filename) -> Tuple[str, str]:
     with open(figure_filename, "rb") as data:
         figure_client.upload_blob(data, overwrite=True)
 
-    print(f"Uploaded {parquet_filename} and {figure_filename} to blob storage")
+    print(f"Uploaded {data_filename} and {figure_filename} to blob storage")
 
     return data_client.url, figure_client.url
 
 
-def save_parquet(data: np.ndarray, filename: str) -> str:
-    # Create the dataframe
-    df = pd.DataFrame(data)
+def save_data(data: Dict[str, list], filename: str) -> str:
 
-    # Save the dataframe to parquet
-    df.to_parquet(filename)
+    with open(filename, "w") as f:
+        json.dump(data, f)
 
     return filename
 
@@ -378,7 +379,10 @@ async def main(
 
     # Get the swap counts
     print("Calculating swap counts")
-    swap_counts = swap_count_per_block(df, more_than=4)
+    more_than = 4
+    swap_counts = swap_count_per_block(df, more_than=more_than)
+
+    print(f"Found {len(swap_counts)} blocks with more than {more_than} swaps")
 
     # Get the swaps for the block with the most swaps
     print("Getting swaps for block with most swaps")
@@ -397,19 +401,21 @@ async def main(
         if cores == -1:
             cores = os.cpu_count() or 1
 
-        results = n_random_permutation(
+        permutation_prices = n_random_permutation(
             pool, swaps_parameters, n_simulations=n_simulations, cores=cores
         )
+        original_prices = run_simulation(pool, swaps_parameters, pbar=False)
 
         # Create filename
-        filename_stem = f"output/simulation_{block_num}_{results.shape[0]}"
-        parquet_filename = filename_stem + ".parquet"
+        filename_stem = f"output/simulation_{block_num}_{permutation_prices.shape[0]}"
+        data_filename = filename_stem + ".json"
         figure_filename = filename_stem + ".png"
 
         # Plot the simulation
         print("Plotting simulation")
         plot_simulation(
-            results,
+            permutation_prices,
+            original_prices,
             pool,
             block_num,
             swaps_parameters,
@@ -418,12 +424,17 @@ async def main(
             show=show,
         )
 
+        data: Dict[str, list] = {
+            "original_prices": list(original_prices.tolist()),
+            "permutation_prices": list(permutation_prices.tolist()),
+        }
+
         # Save the parquet file to file
-        save_parquet(results, parquet_filename)
+        save_data(data, data_filename)
 
         # Save the parquet file and figure to blob storage
         if save:
-            parquet_url, figure_url = save_to_storage(parquet_filename, figure_filename)
+            parquet_url, figure_url = save_to_storage(data_filename, figure_filename)
 
             # Save the simulation to the database
             print("Saving simulation to database")
@@ -434,7 +445,8 @@ async def main(
                     "data_location": parquet_url,
                     "figure_location": figure_url,
                     "ts": datetime.now(),
-                    "n_permutations": results.shape[0],
+                    "n_permutations": permutation_prices.shape[0],
+                    "n_swaps": permutation_prices.shape[1],
                 }
             )
 

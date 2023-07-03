@@ -73,7 +73,7 @@ model SwapV2 {
 }
 
 model PermutationSimulation {
-  id                 Int      @default(autoincrement()) @id
+  id                 Int      @id @default(autoincrement())
   block_number       Int
   pool_address       String   @db.VarChar
   data_location      String   @db.VarChar
@@ -82,6 +82,7 @@ model PermutationSimulation {
   n_permutations     Int
   area_under_curve   Float?
   standard_deviation Float?
+  n_swaps            Int?
 
   @@map("permutation_simulations")
 }
@@ -92,6 +93,5 @@ model TransactionSource {
 
   @@index([hash], map: "ix_transaction_sources_hash")
   @@index([mempool], map: "ix_transaction_sources_mempool")
-
   @@map("transaction_sources")
 }

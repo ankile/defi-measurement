@@ -15,7 +15,7 @@ sys.path.append(
 )
 
 from datetime import datetime
-from typing import Dict, List, Tuple, cast
+from typing import Tuple, cast
 from prisma import Client
 import asyncio
 

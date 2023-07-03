@@ -35,16 +35,17 @@
 				tooltip: {
 					shared: true,
 					formatter: function (): string {
+						const data = this as any;	
 						// Get last point
-						let actualPrice: Number = Math.round(this.points[this.points.length - 1].y * 100) / 100;
+						let actualPrice: Number = Math.round(data.points[data.points.length - 1].y * 100) / 100;
 
 						let averagePrice = 0;
-						for (let i = 0; i < this.points.length - 1; i++) {
-							averagePrice += this.points[i].y;
+						for (let i = 0; i < data.points.length - 1; i++) {
+							averagePrice += data.points[i].y;
 						}
-						averagePrice = Math.round((averagePrice / (this.points.length - 1)) * 100) / 100;
+						averagePrice = Math.round((averagePrice / (data.points.length - 1)) * 100) / 100;
 
-						return `Swap ${this.x}<br>Price: ${actualPrice}<br>Average: ${averagePrice}`;
+						return `Swap ${data.x}<br>Price: ${actualPrice}<br>Average: ${averagePrice}`;
 					},
 				},
 				series: [

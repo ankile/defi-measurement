@@ -104,14 +104,6 @@ class PoolInfo:
     def sqrt_to_price(self, sp: float) -> float:
         return 1 / (sp**2 * self.token0_dec / self.token1_dec)
 
-
-usdceth30 = PoolInfo(
-    pool_address="0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
-    token0_dec=6,
-    token1_dec=18,
-)
-
-
 # Read in the environment variables
 postgres_uri = os.environ["POSTGRESQL_URI_US"]
 blobstorage_uri = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
@@ -135,13 +127,44 @@ def swaps_from_pool(pool_address: str, after: int = 0):
     engine.dispose()
     return df
 
+def swaps_df(after: int = 0):
+    engine = create_engine(postgres_uri)
+
+    df = pd.read_sql(
+        f"""
+            SELECT block_number, address, transaction_index,
+                log_index, amount0, amount1,
+                sqrtpricex96,tick, tx_hash, block_ts
+            FROM swaps
+            WHERE block_number >= {after};
+        """,
+        engine,
+    )
+
+    engine.dispose()
+    return df
+
+def get_pool_info_df():
+    engine = create_engine(postgres_uri)
+
+    df = pd.read_sql(
+        f"""
+            SELECT pool, decimals0, decimals1, token0, token1, token0symbol, token1symbol, fee
+            FROM token_info;
+        """,
+        engine,
+    )
+
+    engine.dispose()
+    return df
+
 
 def plot_simulation(
     permutation_prices: np.ndarray,
     orignal_prices: np.ndarray,
     pool: v3Pool,
     block_num: int,
-    swaps_parameters: List[dict],
+    swaps_parameters: list[dict],
     filename: str,
     save: bool = False,
     show: bool = True,
@@ -187,9 +210,9 @@ def plot_simulation(
     plt.close()
 
 
-def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> List[Tuple[int, int]]:
+def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> list[Tuple[int, str, int]]:
     swap_counts = (
-        df.groupby(by=["block_number"])
+        df.groupby(by=["block_number", "address"])
         .count()
         .sort_values(by=["transaction_index"], ascending=False)
         .block_ts
@@ -198,16 +221,16 @@ def swap_count_per_block(df: pd.DataFrame, more_than: int = 0) -> List[Tuple[int
     swap_counts = swap_counts[swap_counts > more_than]
     swap_count_list = list(swap_counts.reset_index().values.tolist())
 
-    return cast(List[Tuple[int, int]], swap_count_list)
+    return cast(list[Tuple[int, str, int]], swap_count_list)
 
 
-def get_swap_df_from_block(df, block_number) -> DataFrame[SwapSchema]:
+def get_swap_df_from_block(df, block_number, pool_info: PoolInfo) -> DataFrame[SwapSchema]:
     # Get the swaps for this block
     swaps = df[df.block_number == block_number]
     swaps = swaps.sort_values(by=["transaction_index"])
 
     # Convert sqrtPriceX96 to price
-    swaps["price"] = swaps.sqrtpricex96.apply(usdceth30.convert_sqrtPriceX96_to_price)
+    swaps["price"] = swaps.sqrtpricex96.apply(pool_info.convert_sqrtPriceX96_to_price)
 
     # Add column indicating sell or buy
     swaps["direction"] = swaps.apply(
@@ -411,20 +434,18 @@ async def main(
 ):
     
     print(f"Running with argumens: {locals()}")
-    # Create the pool
-    print("Loading pool")
-    pool = load_pool(
-        pool_address=usdceth30.pool_address,
-        postgres_uri=postgres_uri,
-    )
 
     # Create Prisma client if we're saving to the database
     prisma = Client()
     await prisma.connect()
 
-    # Get all swaps for this pool
-    print("Loading swaps")
-    df = swaps_from_pool(pool.pool, after=int(15e6))
+    # Get the pool info
+    print("Loading pool info")
+    pools_info_df = get_pool_info_df()
+
+    # Get the swap data
+    print("Loading swap data")
+    df = swaps_df(after=int(15e6))
 
     # Get the swap counts
     print("Calculating swap counts")
@@ -437,7 +458,26 @@ async def main(
     print("Getting swaps for block with most swaps")
 
     for i in trange(offset, offset + n_blocks):
-        block_num = swap_counts[i][0]
+        block_num, pool_address, count = swap_counts[i]
+
+        # Create the pool
+        print("Loading pool")
+        pool = load_pool(
+            pool_address=pool_address,
+            postgres_uri=postgres_uri,
+        )
+
+        pool_info_df = pools_info_df[pools_info_df.pool == pool.pool].iloc[0]
+
+        pool_info = PoolInfo(
+            pool_address=pool.pool,
+            token0_dec=pools_info_df.decimals0.iloc[0],
+            token1_dec=pools_info_df.decimals1.iloc[0],
+        )
+
+        # Get all swaps for this pool
+        print("Loading swaps")
+        df = swaps_from_pool(pool.pool, after=int(15e6))
 
         record = await prisma.permutationsimulation.find_first(
             where={"block_number": block_num, "pool_address": pool.pool, "n_permutations": n_simulations}
@@ -448,7 +488,7 @@ async def main(
 
         print(f"Running block {block_num} for pool {pool.pool} and n_permutations {n_simulations}")
 
-        swap_df = get_swap_df_from_block(df, block_num)
+        swap_df = get_swap_df_from_block(df, block_num, pool_info)
 
         # Get the swap parameters
         print("Getting swap parameters")

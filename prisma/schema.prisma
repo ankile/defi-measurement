@@ -73,7 +73,6 @@ model SwapV2 {
 }
 
 model PermutationSimulation {
-  id                                 Int      @id @default(autoincrement())
   block_number                       Int
   pool_address                       String   @db.VarChar
   data_location                      String   @db.VarChar
@@ -88,6 +87,7 @@ model PermutationSimulation {
   max_abs_original_deviation         Float?
   mean_max_abs_permutation_deviation Float?
 
+  @@id([block_number, pool_address, n_permutations], map: "permutation_simulations_pk")
   @@map("permutation_simulations")
 }
 

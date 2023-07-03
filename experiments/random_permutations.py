@@ -131,6 +131,8 @@ def swaps_from_pool(pool_address: str, after: int = 0):
         """,
         engine,
     )
+
+    engine.dispose()
     return df
 
 
@@ -371,7 +373,7 @@ def save_to_storage(data_filename, figure_filename) -> Tuple[str, str]:
 
     # Set up the blob client for the parquet file
     data_client = blob_service_client.get_blob_client(
-        container_name, f"permutation-simulation/{folder_name}/data.parquet"
+        container_name, f"permutation-simulation/{folder_name}/data.json"
     )
 
     # Upload the parquet file to the blob
@@ -436,6 +438,15 @@ async def main(
 
     for i in trange(offset, offset + n_blocks):
         block_num = swap_counts[i][0]
+
+        record = await prisma.permutationsimulation.find_first(
+            where={"block_number": block_num, "pool_address": pool.pool, "n_permutations": n_simulations}
+        )
+        if record:
+            print(f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as it already exists")
+            continue
+
+        print(f"Running block {block_num} for pool {pool.pool} and n_permutations {n_simulations}")
 
         swap_df = get_swap_df_from_block(df, block_num)
 

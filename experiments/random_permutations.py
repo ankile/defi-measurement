@@ -211,13 +211,16 @@ def run_simulation(pool: v3Pool, swaps_parameters: list, pbar=True) -> np.ndarra
     # Get the sqrtPriceX96 at the start of the block
     sqrtPrice_next = pool.getPriceAt(swaps_parameters[0]["as_of"])
 
-    prices = np.zeros(len(swaps_parameters), dtype=np.float64)
+    prices = np.zeros(len(swaps_parameters) + 1, dtype=np.float64)
 
-    for i, s in tqdm(enumerate(swaps_parameters), disable=not pbar):
+    for i, s in tqdm(enumerate(swaps_parameters, start=0), disable=not pbar):
         s["givenPrice"] = sqrtPrice_next
         _, heur = pool.swapIn(s, fees=True)
         sqrtPrice_next = heur.sqrtP_next
         prices[i] = 1 / (heur.sqrt_P**2 / 1e12)
+
+    # Calculate the price at the end of the block
+    prices[-1] = 1 / (sqrtPrice_next**2 / 1e12)
 
     return prices
 
@@ -343,7 +346,7 @@ def main(
         results = n_random_permutation(
             pool, swaps_parameters, n_simulations=n_simulations, cores=cores
         )
-        
+
         # Plot the simulation
         print("Plotting simulation")
         plot_simulation(

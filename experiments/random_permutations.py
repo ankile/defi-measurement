@@ -6,6 +6,8 @@ import pickle
 import random
 import sys
 
+from pydantic import BaseModel
+
 current_path = sys.path[0]
 sys.path.append(
     current_path[: current_path.find("defi-measurement")]
@@ -177,6 +179,7 @@ def plot_simulation(
         plt.savefig(filename, dpi=300)
 
     if show:
+        print(f"Showing plot for block {block_num:_}")
         plt.show()
 
     plt.close()
@@ -309,6 +312,48 @@ def load_pool(
     return pool
 
 
+class Stats(BaseModel):
+    baseline: float
+    original_std: float
+    permutation_stds: list
+    mean_permutation_std: float
+    permutation_abs_deviations: list
+    max_abs_permutation_deviations: list
+    mean_max_abs_permutation_deviation: float
+    abs_original_deviation: list
+    max_abs_original_deviation: float
+    permutation_areas: list
+    mean_permutation_area: float
+    original_area: float
+
+
+def calculate_stats(
+    original_prices: np.ndarray, permutation_prices: np.ndarray
+) -> Stats:
+    baseline = original_prices[0]
+    permutation_abs_deviations = np.abs(permutation_prices - baseline)
+    abs_original_deviation = np.abs(original_prices - baseline)
+
+    stats = Stats(
+        baseline=baseline.item(),
+        original_std=np.std(original_prices).item(),
+        permutation_stds=list(np.std(permutation_prices, axis=1)),
+        mean_permutation_std=np.mean(np.std(permutation_prices, axis=1)).item(),
+        permutation_abs_deviations=list(permutation_abs_deviations.tolist()),
+        max_abs_permutation_deviations=list(np.max(permutation_abs_deviations, axis=1)),
+        mean_max_abs_permutation_deviation=np.mean(
+            np.max(permutation_abs_deviations, axis=1)
+        ).item(),
+        abs_original_deviation=list(abs_original_deviation),
+        max_abs_original_deviation=np.max(abs_original_deviation).item(),
+        permutation_areas=list(np.trapz(permutation_abs_deviations, axis=1)),  # type: ignore
+        mean_permutation_area=np.mean(np.trapz(permutation_abs_deviations, axis=1)).item(),  # type: ignore
+        original_area=np.trapz(abs_original_deviation).item(),  # type: ignore
+    )
+
+    return stats
+
+
 def save_to_storage(data_filename, figure_filename) -> Tuple[str, str]:
     # Set up the Azure blob service client
     blob_service_client = BlobServiceClient.from_connection_string(blobstorage_uri)
@@ -347,8 +392,7 @@ def save_to_storage(data_filename, figure_filename) -> Tuple[str, str]:
     return data_client.url, figure_client.url
 
 
-def save_data(data: Dict[str, list], filename: str) -> str:
-
+def save_data(data: dict[str, list | dict], filename: str) -> str:
     with open(filename, "w") as f:
         json.dump(data, f)
 
@@ -357,11 +401,14 @@ def save_data(data: Dict[str, list], filename: str) -> str:
 
 async def main(
     n_blocks: int = 1,
+    offset: int = 0,
     n_simulations: int = 1000,
     cores: int = -1,
     save: bool = True,
     show: bool = True,
 ):
+    
+    print(f"Running with argumens: {locals()}")
     # Create the pool
     print("Loading pool")
     pool = load_pool(
@@ -387,7 +434,7 @@ async def main(
     # Get the swaps for the block with the most swaps
     print("Getting swaps for block with most swaps")
 
-    for i in trange(n_blocks):
+    for i in trange(offset, offset + n_blocks):
         block_num = swap_counts[i][0]
 
         swap_df = get_swap_df_from_block(df, block_num)
@@ -424,17 +471,22 @@ async def main(
             show=show,
         )
 
-        data: Dict[str, list] = {
+        stats = calculate_stats(original_prices, permutation_prices)
+
+        data = {
             "original_prices": list(original_prices.tolist()),
             "permutation_prices": list(permutation_prices.tolist()),
+            "stats": stats.dict(),
         }
-
-        # Save the parquet file to file
-        save_data(data, data_filename)
 
         # Save the parquet file and figure to blob storage
         if save:
-            parquet_url, figure_url = save_to_storage(data_filename, figure_filename)
+            # Save the parquet file to file
+            print("Saving data to local file")
+            save_data(data, data_filename)
+
+            print("Saving data to blob storage")
+            data_url, figure_url = save_to_storage(data_filename, figure_filename)
 
             # Save the simulation to the database
             print("Saving simulation to database")
@@ -442,13 +494,30 @@ async def main(
                 data={
                     "block_number": block_num,
                     "pool_address": pool.pool,
-                    "data_location": parquet_url,
+                    "data_location": data_url,
                     "figure_location": figure_url,
                     "ts": datetime.now(),
                     "n_permutations": permutation_prices.shape[0],
                     "n_swaps": permutation_prices.shape[1],
+                    "original_std": stats.original_std,
+                    "mean_permutation_std": stats.mean_permutation_std,
+                    "original_area": stats.original_area,
+                    "mean_permutation_area": stats.mean_permutation_area,
+                    "max_abs_original_deviation": stats.max_abs_original_deviation,
+                    "mean_max_abs_permutation_deviation": stats.mean_max_abs_permutation_deviation,
                 }
             )
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 if __name__ == "__main__":
@@ -459,6 +528,13 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help="Number of blocks to simulate",
+    )
+    parser.add_argument(
+        "--offset",
+        "-o",
+        type=int,
+        default=0,
+        help="Offset from the block with the most swaps",
     )
     parser.add_argument(
         "--n_simulations",
@@ -476,13 +552,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Save the plot",
     )
     parser.add_argument(
         "--show",
-        type=bool,
+        type=str2bool,
         default=False,
         help="Show the plot",
     )
@@ -492,6 +568,7 @@ if __name__ == "__main__":
     asyncio.run(
         main(
             n_blocks=args.n_blocks,
+            offset=args.offset,
             n_simulations=args.n_simulations,
             cores=args.cores,
             save=args.save,

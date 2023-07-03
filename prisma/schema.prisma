@@ -73,16 +73,20 @@ model SwapV2 {
 }
 
 model PermutationSimulation {
-  id                 Int      @id @default(autoincrement())
-  block_number       Int
-  pool_address       String   @db.VarChar
-  data_location      String   @db.VarChar
-  figure_location    String   @db.VarChar
-  ts                 DateTime @db.Timestamptz(3)
-  n_permutations     Int
-  area_under_curve   Float?
-  standard_deviation Float?
-  n_swaps            Int?
+  id                                 Int      @id @default(autoincrement())
+  block_number                       Int
+  pool_address                       String   @db.VarChar
+  data_location                      String   @db.VarChar
+  figure_location                    String   @db.VarChar
+  ts                                 DateTime @db.Timestamptz(3)
+  n_permutations                     Int
+  n_swaps                            Int?
+  original_std                       Float?
+  mean_permutation_std               Float?
+  original_area                      Float?
+  mean_permutation_area              Float?
+  max_abs_original_deviation         Float?
+  mean_max_abs_permutation_deviation Float?
 
   @@map("permutation_simulations")
 }

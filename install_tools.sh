@@ -22,5 +22,19 @@ echo "Zsh, Oh My Zsh, and Tmux installation completed."
 # Reload the terminal
 source ~/.zshrc
 
+# Install Python
+sudo apt install python3.11 -y
+sudo apt install python3.11-venv -y
+
+# Make a virtual environment
+python3.11 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Upgrade pip and install the requirements
+pip install --upgrade pip
+pip install -r requirements.txt
+
 # Exit the script
 exit 0

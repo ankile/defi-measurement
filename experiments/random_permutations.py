@@ -13,6 +13,8 @@ sys.path.append(
 
 from datetime import datetime
 from typing import List, Tuple, cast
+from prisma import Client
+import asyncio
 
 
 from math import ceil
@@ -26,6 +28,7 @@ from pool_state import v3Pool
 from sqlalchemy import create_engine
 from tqdm import tqdm, trange
 from multiprocessing import Pool
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 
 load_dotenv(override=True)
@@ -108,9 +111,7 @@ usdceth30 = PoolInfo(
 
 # Read in the environment variables
 postgres_uri = os.environ["POSTGRESQL_URI_US"]
-
-if postgres_uri is None:
-    raise ValueError("Connection string to Postgres is not set")
+blobstorage_uri = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 
 
 def swaps_from_pool(pool_address: str, after: int = 0):
@@ -135,9 +136,10 @@ def plot_simulation(
     pool: v3Pool,
     block_num: int,
     swaps_parameters: List[dict],
+    filename: str,
     save: bool = False,
     show: bool = True,
-) -> None:
+):
     # Plot every line on the same plot to get the density
     _, ax = plt.subplots(figsize=(12, 8))
 
@@ -171,7 +173,7 @@ def plot_simulation(
 
     # Show the plot
     if save:
-        plt.savefig(f"output/simulation_{block_num}_{results.shape[0]}.png", dpi=300)
+        plt.savefig(filename, dpi=300)
 
     if show:
         plt.show()
@@ -304,7 +306,55 @@ def load_pool(
     return pool
 
 
-def main(
+def save_to_storage(parquet_filename, figure_filename) -> Tuple[str, str]:
+    # Set up the Azure blob service client
+    blob_service_client = BlobServiceClient.from_connection_string(blobstorage_uri)
+
+    # Create a new container (if it does not exist)
+    container_name = "uniswap-pool-pickles"
+    container_client = blob_service_client.get_container_client(container_name)
+    try:
+        container_client.create_container()
+        print(f"Container '{container_name}' created.")
+    except:
+        print(f"Container '{container_name}' already exists.")
+
+    folder_name = parquet_filename.split("/")[-1].split(".")[0]
+
+    # Set up the blob client for the parquet file
+    data_client = blob_service_client.get_blob_client(
+        container_name, f"permutation-simulation/{folder_name}/data.parquet"
+    )
+
+    # Upload the parquet file to the blob
+    with open(parquet_filename, "rb") as data:
+        data_client.upload_blob(data, overwrite=True)
+
+    # Set up the blob client for the figure
+    figure_client = blob_service_client.get_blob_client(
+        container_name, f"permutation-simulation/{folder_name}/figure.png"
+    )
+
+    # Upload the figure to the blob
+    with open(figure_filename, "rb") as data:
+        figure_client.upload_blob(data, overwrite=True)
+
+    print(f"Uploaded {parquet_filename} and {figure_filename} to blob storage")
+
+    return data_client.url, figure_client.url
+
+
+def save_parquet(data: np.ndarray, filename: str) -> str:
+    # Create the dataframe
+    df = pd.DataFrame(data)
+
+    # Save the dataframe to parquet
+    df.to_parquet(filename)
+
+    return filename
+
+
+async def main(
     n_blocks: int = 1,
     n_simulations: int = 1000,
     cores: int = -1,
@@ -317,6 +367,10 @@ def main(
         pool_address=usdceth30.pool_address,
         postgres_uri=postgres_uri,
     )
+
+    # Create Prisma client if we're saving to the database
+    prisma = Client()
+    await prisma.connect()
 
     # Get all swaps for this pool
     print("Loading swaps")
@@ -347,11 +401,42 @@ def main(
             pool, swaps_parameters, n_simulations=n_simulations, cores=cores
         )
 
+        # Create filename
+        filename_stem = f"output/simulation_{block_num}_{results.shape[0]}"
+        parquet_filename = filename_stem + ".parquet"
+        figure_filename = filename_stem + ".png"
+
         # Plot the simulation
         print("Plotting simulation")
         plot_simulation(
-            results, pool, block_num, swaps_parameters, save=save, show=show
+            results,
+            pool,
+            block_num,
+            swaps_parameters,
+            figure_filename,
+            save=save,
+            show=show,
         )
+
+        # Save the parquet file to file
+        save_parquet(results, parquet_filename)
+
+        # Save the parquet file and figure to blob storage
+        if save:
+            parquet_url, figure_url = save_to_storage(parquet_filename, figure_filename)
+
+            # Save the simulation to the database
+            print("Saving simulation to database")
+            await prisma.permutationsimulation.create(
+                data={
+                    "block_number": block_num,
+                    "pool_address": pool.pool,
+                    "data_location": parquet_url,
+                    "figure_location": figure_url,
+                    "ts": datetime.now(),
+                    "n_permutations": results.shape[0],
+                }
+            )
 
 
 if __name__ == "__main__":
@@ -392,10 +477,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(
-        n_blocks=args.n_blocks,
-        n_simulations=args.n_simulations,
-        cores=args.cores,
-        save=args.save,
-        show=args.show,
+    asyncio.run(
+        main(
+            n_blocks=args.n_blocks,
+            n_simulations=args.n_simulations,
+            cores=args.cores,
+            save=args.save,
+            show=args.show,
+        )
     )

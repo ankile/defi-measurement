@@ -484,12 +484,15 @@ async def main(
 
     # Get the swaps for the block with the most swaps
     print("Getting swaps for block with most swaps")
+    n_successful = 0
 
-    for i in trange(offset, offset + n_blocks):
+    it = trange(offset, offset + n_blocks, leave=True, unit="block")
+    for i in it:
         block_num, pool_address, _ = swap_counts[i]
+        it.set_description(f"Block {block_num}, pool {pool_address[-6:]}")
 
         # Create the pool
-        print("Loading pool")
+        print(f"[{datetime.now()}] Loading pool {pool_address}")
         try:
             pool = load_pool(
                 pool_address=pool_address,
@@ -609,6 +612,9 @@ async def main(
                     "mean_max_abs_permutation_deviation": stats.mean_max_abs_permutation_deviation,
                 }
             )
+
+        n_successful += 1
+        it.set_postfix(successful=n_successful)
 
 
 def str2bool(v):

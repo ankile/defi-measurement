@@ -48,6 +48,11 @@ from pandera.typing import DataFrame, Series
 if not os.path.exists("cache"):
     os.mkdir("cache")
 
+# Check that the errors.csv file exists
+if not os.path.exists("output/errors.csv"):
+    with open("output/errors.csv", "w") as f:
+        f.write("block_number,pool_address,error\n")
+
 
 class SwapSchema(pa.DataFrameModel):
     block_number: Series[int]
@@ -485,17 +490,25 @@ async def main(
 
         # Create the pool
         print("Loading pool")
-        pool = load_pool(
-            pool_address=pool_address,
-            postgres_uri=postgres_uri,
-        )
+        try:
+            pool = load_pool(
+                pool_address=pool_address,
+                postgres_uri=postgres_uri,
+            )
+        except AssertionError as e:
+            print(f"Skipping block {block_num} for pool {pool_address} as {e}")
+            with open("errors.csv", "a") as f:
+                f.write(f"{block_num},{pool_address},{e}\n")
+
+            continue
 
         pool_info_df = pools_info_df[pools_info_df.pool == pool.pool]
 
         if pool_info_df.empty:
-            print(
-                f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as we don't have the pool info"
-            )
+            reason = f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as we don't have the pool info"
+            print(reason)
+            with open("errors.csv", "a") as f:
+                f.write(f"{block_num},{pool_address},{reason}\n")
             continue
 
         pool_info = PoolInfo(
@@ -516,9 +529,10 @@ async def main(
             }
         )
         if record:
-            print(
-                f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as it already exists"
-            )
+            reason = f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as it already exists"
+            print(reason)
+            with open("errors.csv", "a") as f:
+                f.write(f"{block_num},{pool_address},{reason}\n")
             continue
 
         print(

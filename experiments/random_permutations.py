@@ -48,6 +48,10 @@ from pandera.typing import DataFrame, Series
 if not os.path.exists("cache"):
     os.mkdir("cache")
 
+# Check if the output folder exists
+if not os.path.exists("output"):
+    os.mkdir("output")
+
 # Check that the errors.csv file exists
 if not os.path.exists("output/errors.csv"):
     with open("output/errors.csv", "w") as f:

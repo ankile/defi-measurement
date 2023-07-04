@@ -175,7 +175,11 @@ def get_pool_info_df():
     df = pd.read_sql(
         f"""
             SELECT pool, decimals0, decimals1, token0, token1, token0symbol, token1symbol, fee
-            FROM token_info;
+            FROM token_info
+            WHERE token0symbol IS NOT NULL
+            AND token1symbol IS NOT NULL
+            AND decimals0 IS NOT NULL
+            AND decimals1 IS NOT NULL;
         """,
         engine,
     )
@@ -534,8 +538,6 @@ async def main(
         if record:
             reason = f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as it already exists"
             print(reason)
-            with open("errors.csv", "a") as f:
-                f.write(f"{block_num},{pool_address},{reason}\n")
             continue
 
         print(

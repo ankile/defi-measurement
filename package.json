@@ -8,6 +8,7 @@
     "nodemailer": "^6.9.3"
   },
   "devDependencies": {
+    "@types/nodemailer": "^6.4.8",
     "prisma": "^4.15.0"
   }
 }

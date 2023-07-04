@@ -100,7 +100,7 @@ cython_debug/
 # Javascipt
 node_modules/
 # package-lock.json
-pnpm-lock.yaml
+# pnpm-lock.yaml
 .svelte-kit/
 
 cache

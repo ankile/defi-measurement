@@ -31,7 +31,7 @@ from pool_state import v3Pool
 from sqlalchemy import create_engine
 from tqdm import tqdm, trange
 from multiprocessing import Pool
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.storage.blob import BlobServiceClient
 
 
 load_dotenv(override=True)
@@ -119,25 +119,6 @@ postgres_uri = os.environ["POSTGRESQL_URI_US"]
 blobstorage_uri = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 
 
-def swaps_from_pool(pool_address: str, after: int = 0):
-    engine = create_engine(postgres_uri)
-
-    df = pd.read_sql(
-        f"""
-            SELECT block_number, transaction_index,
-                log_index, amount0, amount1,
-                sqrtpricex96,tick, tx_hash, block_ts
-            FROM swaps
-            WHERE address = '{pool_address}'
-            AND block_number >= {after};
-        """,
-        engine,
-    )
-
-    engine.dispose()
-    return df
-
-
 def swaps_df(after: int = 0):
     # Check if the swaps_df is cached
     filename = "cache/swaps_df.pickle"
@@ -149,7 +130,7 @@ def swaps_df(after: int = 0):
             f"""
                 SELECT block_number, address, transaction_index,
                     log_index, amount0, amount1,
-                    sqrtpricex96,tick, tx_hash, block_ts
+                    sqrtpricex96, tick, tx_hash, block_ts
                 FROM swaps
                 WHERE block_number > {after};
             """,
@@ -340,7 +321,6 @@ def load_pool(
     # Check if pool_cache.pickle exists
     filename = "cache/pool_cache.pickle"
     if not os.path.exists(filename):
-        os.mkdir("cache")
         with open(filename, "wb") as f:
             pickle.dump({}, f)
 
@@ -457,6 +437,24 @@ def save_data(data: dict[str, list | dict], filename: str) -> str:
     return filename
 
 
+async def simulation_exists(
+    prisma: Client, block_num: int, pool_address: str, n_simulations: int
+) -> bool:
+    record = await prisma.permutationsimulation.find_first(
+        where={
+            "block_number": block_num,
+            "pool_address": pool_address,
+            "n_permutations": n_simulations,
+        }
+    )
+    if record:
+        reason = f"Skipping block {block_num} for pool {pool_address} and n_permutations {n_simulations} as it already exists"
+        print(reason)
+        return True
+
+    return False
+
+
 async def main(
     n_blocks: int = 1,
     offset: int = 0,
@@ -495,6 +493,10 @@ async def main(
         block_num, pool_address, _ = swap_counts[i]
         it.set_description(f"Block {block_num}, pool {pool_address[-6:]}")
 
+        # Check if the simulation already exists
+        if await simulation_exists(prisma, block_num, pool_address, n_simulations):
+            continue
+
         # Create the pool
         print(f"[{datetime.now()}] Loading pool {pool_address}")
         try:
@@ -525,30 +527,17 @@ async def main(
         )
 
         # Get all swaps for this pool
-        print("Loading swaps")
-        df = swaps_from_pool(pool.pool, after=int(15e6))
-
-        record = await prisma.permutationsimulation.find_first(
-            where={
-                "block_number": block_num,
-                "pool_address": pool.pool,
-                "n_permutations": n_simulations,
-            }
-        )
-        if record:
-            reason = f"Skipping block {block_num} for pool {pool.pool} and n_permutations {n_simulations} as it already exists"
-            print(reason)
-            continue
-
-        print(
-            f"Running block {block_num} for pool {pool.pool} and n_permutations {n_simulations}"
-        )
-
-        swap_df = get_swap_df_from_block(df, block_num, pool_info)
+        print("Filtering swaps for this pool")
+        pool_df = df[df.address == pool.pool]
 
         # Get the swap parameters
+        swap_df = get_swap_df_from_block(pool_df, block_num, pool_info)
         print("Getting swap parameters")
         swaps_parameters = get_swap_params(pool, swap_df)
+
+        print(
+            f"Running block {block_num} for pool {pool.pool} with {len(swaps_parameters)} and n_permutations {n_simulations}"
+        )
 
         # Run the simulation
         print("Running simulation")
@@ -672,8 +661,23 @@ if __name__ == "__main__":
         default=False,
         help="Show the plot",
     )
+    parser.add_argument(
+        "--clear-caches",
+        nargs="+",
+        help="Caches to clear",
+    )
 
     args = parser.parse_args()
+
+    if args.clear_caches:
+        resp = input(f"Are you sure you want to clear {args.clear_caches}? (y/n) ")
+        if resp.lower() != "y":
+            sys.exit(0)
+        for cache in args.clear_caches:
+            filename = f"cache/{cache}.pickle"
+            if os.path.exists(filename):
+                os.remove(filename)
+                print(f"Removed {filename}")
 
     asyncio.run(
         main(

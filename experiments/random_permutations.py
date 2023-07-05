@@ -337,6 +337,7 @@ def load_pool(
             return pool_cache[pool_address]
 
     # If it's not in the cache, load it and add it to the cache
+    print("Loading pool from database")
     pool = v3Pool(
         poolAdd=pool_address,
         connStr=postgres_uri,

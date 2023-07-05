@@ -463,6 +463,8 @@ async def main(
     n_blocks: int = 1,
     offset: int = 0,
     n_simulations: int = 1000,
+    more_than: int = 4,
+    random_order: bool = False,
     cores: int = -1,
     save: bool = True,
     show: bool = True,
@@ -483,13 +485,15 @@ async def main(
 
     # Get the swap counts
     print("Calculating swap counts")
-    more_than = 4
     swap_counts = swap_count_per_block(df, more_than=more_than)
 
     print(f"Found {len(swap_counts)} blocks with more than {more_than} swaps")
 
-    # Get the swaps for the block with the most swaps
-    print("Getting swaps for block with most swaps")
+    # Shuffle the swap counts if we want to run them in random order
+    if random_order:
+        print("Shuffling swap counts")
+        random.shuffle(swap_counts)
+
     n_successful = 0
 
     it = trange(offset, offset + n_blocks, leave=True, unit="block")
@@ -645,6 +649,20 @@ if __name__ == "__main__":
         type=int,
         default=1000,
         help="Number of simulations to run",
+    )
+    parser.add_argument(
+        "--more-than",
+        "-m",
+        type=int,
+        default=4,
+        help="Minimum number of swaps per block",
+    )
+    parser.add_argument(
+        "--random-order",
+        "-r",
+        type=str2bool,
+        default=False,
+        help="Run the simulations in random order",
     )
     parser.add_argument(
         "--cores",

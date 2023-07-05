@@ -705,6 +705,8 @@ if __name__ == "__main__":
         main(
             n_blocks=args.n_blocks,
             offset=args.offset,
+            more_than=args.more_than,
+            random_order=args.random_order,
             n_simulations=args.n_simulations,
             cores=args.cores,
             save=args.save,

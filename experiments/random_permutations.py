@@ -544,7 +544,7 @@ async def main(
         swaps_parameters = get_swap_params(pool, swap_df)
 
         print(
-            f"Running block {block_num} for pool {pool.pool} with {len(swaps_parameters)} and n_permutations {n_simulations}"
+            f"Running block {block_num} for pool {pool.pool} with {len(swaps_parameters)} swaps and n_permutations {n_simulations}"
         )
 
         # Run the simulation

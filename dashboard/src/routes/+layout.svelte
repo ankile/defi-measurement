@@ -27,6 +27,7 @@
 	<li><a href="/mempool-share">Mempool Share</a></li>
 	<li><a href="/permutations">Transaction Order Permutations</a></li>
 	<li><a href="/swaps-in-block">Swaps in Blocks per Pool</a></li>
+	<li><a href="/three-swap-blocks">Share of Swap Order for 3-Swap Blocks</a></li>
 </ul>
 
 <body data-sveltekit-preload-data="hover">

@@ -37,21 +37,21 @@
 			},
 			tooltip: {
 				formatter: function () {
-					const count = Math.round(this.y * total);
-					return `Percentage: ${(this.y * 100).toFixed(2)}%<br>Absolute Count: ${count}`;
+					const count = Math.round((this as any).y * total);
+					return `Percentage: ${((this as any).y * 100).toFixed(2)}%<br>Absolute Count: ${count}`;
 				},
 			},
 			yAxis: {
 				title: { text: 'Percentage of Total' },
 				labels: {
 					formatter: function () {
-						return this.value * 100 + '%';
+						return (this as any).value * 100 + '%';
 					},
 				},
 				plotLines: [
 					{
 						color: 'red', // Color value
-						dashStyle: 'longdash', // Style of the plot line. Default to solid
+						dashStyle: 'LongDash', // Style of the plot line. Default to solid
 						value: 0.33, // Value of where the line will appear
 						width: 2, // Width of the line
 						label: {
@@ -69,7 +69,7 @@
       dataLabels: {
         enabled: true,
         formatter: function() {
-          return (this.y * 100).toFixed(2) + '%';
+          return ((this as any).y * 100).toFixed(2) + '%';
         }
       },
     },

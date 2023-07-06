@@ -1,16 +1,10 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import '@fontsource/merriweather';
 	import type { PageData } from './$types';
-	import { DateTime } from 'luxon';
 
-	import { Chart, registerables } from 'chart.js';
 	import { onMount } from 'svelte';
 	import Highcharts from 'highcharts';
 
-	Chart.register(...registerables);
-
-	let chartElement: HTMLCanvasElement;
 
 	export let data: PageData;
 

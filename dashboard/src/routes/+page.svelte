@@ -1,10 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { format as formatDate } from 'date-fns';
-
-	import Highcharts from 'highcharts';
-	import { onMount } from 'svelte';
-
 	export let data: PageData;
 
 	const { uniswapV2, uniswapV3, mempool } = data;

@@ -27,7 +27,7 @@ async function writeToDb(data: MempoolTransaction[]) {
     });
     transactionBatch = [];
     console.log("Added to the table", new Date());
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[${new Date()}] Failed to write to the database, retrying in 5 seconds...`, err);
     await sendEmail("Database connection failure", "Failed to write to the database. Error: " + err.message);
     setTimeout(() => writeToDb(data), 5000);
@@ -74,7 +74,7 @@ async function sendEmail(subject: string, text: string) {
   try {
     let info = await transporter.sendMail(mailOptions);
     console.log(`[${new Date()}] Message sent: ${info.response}`);
-  } catch (error) {
+  } catch (error: any ) {
     console.log(`[${new Date()}] Error occurred while sending email: ${error.message}`);
   }
 }

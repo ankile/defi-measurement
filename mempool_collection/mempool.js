@@ -9,7 +9,7 @@ const nodemailer = require("nodemailer");
 const { printTransactionCounts } = require("./printTransactionCounts");
 
 // Read the map of contract addresses to contract names from the router_addresses.json file, looks like this:
-const uniswapRouterAddresses = require("./router_addresses.json");
+const uniswapRouterAddresses = require("../addresses/router_addresses.json");
 
 const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
 const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;

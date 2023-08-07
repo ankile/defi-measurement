@@ -12,7 +12,7 @@ const { printTransactionCounts } = require("./printTransactionCounts");
 const uniswapRouterAddresses = require("../addresses/router_addresses.json");
 
 const nodeWSConnectionString = process.env.NODE_WS_CONNECTION_STRING;
-const mongodbConnectionString = process.env.MONGODB_CONNECTION_STRING;
+const mongodbConnectionString = process.env.MONGO_URI;
 
 const DB = "transactions";
 const COLLECTION = "mempool";

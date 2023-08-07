@@ -90,7 +90,7 @@ const init = async function () {
 
   connectErrorHandlers();
 
-  customWsProvider.on("pending", (tx: String) => {
+  customWsProvider.on("pending", (tx) => {
     customWsProvider.getTransaction(tx).then(async function (transaction) {
       // Increment total transactions
       totalTransactions++;

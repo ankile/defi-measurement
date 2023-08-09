@@ -321,6 +321,7 @@ def n_random_permutation(
 def load_pool(
     pool_address: str,
     postgres_uri: str,
+    verbose: bool = True,
 ) -> v3Pool:
     # Check if pool_cache.pickle exists
     filename = "cache/pool_cache.pickle"
@@ -333,11 +334,13 @@ def load_pool(
         pool_cache = pickle.load(f)
         if pool_address in pool_cache:
             # If it is, load the pool from the cache
-            print("Loading pool from cache")
+            if verbose:
+                print("Loading pool from cache")
             return pool_cache[pool_address]
 
     # If it's not in the cache, load it and add it to the cache
-    print("Loading pool from database")
+    if verbose:
+        print("Loading pool from database")
     pool = v3Pool(
         poolAdd=pool_address,
         connStr=postgres_uri,

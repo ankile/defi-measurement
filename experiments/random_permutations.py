@@ -323,20 +323,16 @@ def load_pool(
     postgres_uri: str,
     verbose: bool = True,
 ) -> v3Pool:
-    # Check if pool_cache.pickle exists
-    filename = "cache/pool_cache.pickle"
-    if not os.path.exists(filename):
-        with open(filename, "wb") as f:
-            pickle.dump({}, f)
+    os.makedirs('cache/pool_cache/', exist_ok=True)
 
     # Check if we already have this pool in the cache
-    with open(filename, "rb") as f:
-        pool_cache = pickle.load(f)
-        if pool_address in pool_cache:
-            # If it is, load the pool from the cache
-            if verbose:
-                print("Loading pool from cache")
-            return pool_cache[pool_address]
+    filename = "cache/pool_cache/{pool_address}.pickle"
+    if os.path.exists(filename):
+        if verbose:
+            print("Loading pool from cache")
+        with open(filename, "rb") as f:
+            pool = pickle.load(f)
+            return pool
 
     # If it's not in the cache, load it and add it to the cache
     if verbose:
@@ -348,12 +344,9 @@ def load_pool(
         delete_conn=True,
     )
 
-    # Add the pool to the cache
-    pool_cache[pool_address] = pool
-
     # Save the cache
     with open(filename, "wb") as f:
-        pickle.dump(pool_cache, f)
+        pickle.dump(pool, f)
 
     return pool
 

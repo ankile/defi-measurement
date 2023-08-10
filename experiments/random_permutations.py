@@ -326,7 +326,7 @@ def load_pool(
     os.makedirs('cache/pool_cache/', exist_ok=True)
 
     # Check if we already have this pool in the cache
-    filename = "cache/pool_cache/{pool_address}.pickle"
+    filename = f"cache/pool_cache/{pool_address}.pickle"
     if os.path.exists(filename):
         if verbose:
             print("Loading pool from cache")

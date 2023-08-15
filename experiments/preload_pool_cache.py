@@ -108,7 +108,7 @@ def load_pool_from_blob(
     )
 
     # Save the cache to Azure Blob Storage
-    blob_client.upload_blob(pickle.dumps(pool))
+    blob_client.upload_blob(pickle.dumps(pool), overwrite=True)
 
     return pool
 

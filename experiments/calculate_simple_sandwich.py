@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 current_path = sys.path[0]
@@ -342,9 +343,10 @@ def run_sandwiches(swaps: pd.DataFrame):
     swap_dicts: Any = swaps.reset_index().to_dict(orient="records")
     it = tqdm(swap_dicts)
     errors = 0
+    skipped = 0
 
     for swap_dict in it:
-        it.set_postfix(errors=errors)
+        it.set_postfix(errors=errors, skipped=skipped)
 
         try:
             swap = SwapData(**swap_dict)
@@ -408,5 +410,15 @@ def run_sandwiches(swaps: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    df_single_sorted = get_data()
-    run_sandwiches(df_single_sorted)
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--offset', type=int, default=0, help='Offset for the dataframe')
+    parser.add_argument('--limit', type=int, default=None, help='Limit for the dataframe')
+
+    args = parser.parse_args()
+
+    df = get_data()
+
+    # Apply offset and limit to the dataframe
+    df_sliced: pd.DataFrame = df.iloc[args.offset:args.offset+args.limit if args.limit is not None else None, :] # type: ignore
+
+    run_sandwiches(df_sliced)

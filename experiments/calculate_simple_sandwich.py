@@ -15,7 +15,7 @@ import math
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Union
+from typing import Any, Union, cast
 from collections import namedtuple
 
 import pandas as pd
@@ -23,10 +23,9 @@ import pandas as pd
 from datetime import datetime, timezone
 
 from pool_state import v3Pool
-from sqlalchemy import BigInteger, create_engine
 from tqdm import tqdm
 
-from sqlalchemy import create_engine, Column, Integer, String, Float, Double
+from sqlalchemy import create_engine, Column, Integer, String, Double
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
@@ -55,9 +54,11 @@ class SimpleSandwich(Base):
     pool = Column(String, nullable=False)
     token_in = Column(String, nullable=False)
     token_out = Column(String, nullable=False)
-    profit = Column(BigInteger, nullable=False)
-    profit_nofee = Column(BigInteger, nullable=False)
-    gas_fee_eth = Column(Float, nullable=False)
+    profit = Column(String, nullable=False)
+    profit_nofee = Column(String, nullable=False)
+    profit_float = Column(Double, nullable=False)
+    profit_nofee_float = Column(Double, nullable=False)
+    gas_fee_eth = Column(Double, nullable=False)
     frontrun_input = Column(String, nullable=False)
     price_baseline = Column(Double, nullable=False)
     price_frontrun = Column(Double, nullable=False)
@@ -107,14 +108,6 @@ def get_data():
         .count()
         .sort_values("transaction_hash", ascending=False)
     )
-
-    swap_counts[swap_counts == 1].transaction_hash.sum(), swap_counts[
-        swap_counts > 1
-    ].transaction_hash.sum(), swap_counts.transaction_hash.sum()
-
-    # ## Create Sandwich Attacks on Single Swaps
-    #
-    # Start with this to validate the approach.
 
     single_swap_blocks = swap_counts[swap_counts == 1].sort_index()
 
@@ -199,8 +192,8 @@ def valid_frontrun(pool: v3Pool, swap: SwapData, frontrun_input) -> bool:
 
 def exponential_search(
     pool: v3Pool, swap: SwapData, start=1e6, max_tries=100, factor=8
-) -> (int, int):
-    lower = 0
+) -> tuple[float, float]:
+    lower: float = 0.0
     upper = start
 
     for i in range(max_tries):
@@ -236,10 +229,10 @@ def max_frontrun(pool: v3Pool, swap: SwapData, start=1e6, factor=2) -> int:
 
 def single_sandwich_mev(
     pool: v3Pool, swap: SwapData, frontrun_input: int, pool_fee=True
-) -> (int, float, tuple):
+) -> tuple[int, float, tuple]:
     total_gas = 0
+    orig_fee = pool.fee
     if not pool_fee:
-        orig_fee = pool.fee
         pool.fee = 0
 
     price_baseline = pool.getPriceAt(swap.block_number)
@@ -331,8 +324,9 @@ def persist_sandwich(sandwich: SimpleSandwich):
 
 
 def run_sandwiches(swaps: pd.DataFrame):
-    curr_pool = None
-    it = tqdm(swaps.reset_index().to_dict(orient="records"))
+    curr_pool: v3Pool | None = None
+    swap_dicts: Any = swaps.reset_index().to_dict(orient="records")
+    it = tqdm(swap_dicts)
     errors = 0
 
     for swap_dict in it:
@@ -342,7 +336,7 @@ def run_sandwiches(swaps: pd.DataFrame):
             it.set_description(f"Pool: {swap.pool}, block: {swap.block_number}")
 
             if not curr_pool or curr_pool.pool != swap.pool:
-                curr_pool: v3Pool = load_pool_from_blob(
+                curr_pool = load_pool_from_blob(
                     swap.pool,
                     postgres_uri_us,
                     azure_storage_uri,
@@ -351,6 +345,8 @@ def run_sandwiches(swaps: pd.DataFrame):
                     invalidate_before_date=datetime(2023, 8, 15, tzinfo=timezone.utc),
                     pbar=it,
                 )
+            if not curr_pool:
+                raise Exception("Pool undefined")
 
             sandwich_result = auto_sandwich_mev(
                 curr_pool,

@@ -105,6 +105,7 @@ def load_pool_from_blob(
         connStr=postgres_uri,
         initialize=False,
         delete_conn=True,
+        verbose=False,
     )
 
     # Save the cache to Azure Blob Storage

@@ -71,7 +71,6 @@ Base.metadata.create_all(engine_mp)
 
 def get_data():
     # ## Get the Data
-
     query = """
         SELECT *
         FROM SWAP_LIMIT_PRICE AS LIM
@@ -191,12 +190,15 @@ def valid_frontrun(pool: v3Pool, swap: SwapData, frontrun_input) -> bool:
 
 
 def exponential_search(
-    pool: v3Pool, swap: SwapData, start=1e6, max_tries=100, factor=8
+    pool: v3Pool, swap: SwapData, start=1e6, max_tries=100, factor=8, verbose=False
 ) -> tuple[float, float]:
     lower: float = 0.0
     upper = start
 
     for i in range(max_tries):
+        if verbose:
+            print(f"{i}: Trying {upper}")
+
         if not valid_frontrun(pool, swap, upper):
             return lower, upper
         else:
@@ -207,9 +209,12 @@ def exponential_search(
         raise Exception("Exponential search exceeded max tries")
 
 
-def binary_search(pool: v3Pool, swap: SwapData, lower, upper, max_tries=100) -> int:
+def binary_search(pool: v3Pool, swap: SwapData, lower, upper, max_tries=100, verbose=False) -> int:
     for i in range(max_tries):
-        if math.isclose(lower, upper, abs_tol=1e18):
+        if verbose:
+            print(f"{i}: Trying {lower} - {upper}")
+
+        if math.isclose(lower, upper, rel_tol=1e-5):
             return lower
 
         mid = (lower + upper) // 2
@@ -217,14 +222,15 @@ def binary_search(pool: v3Pool, swap: SwapData, lower, upper, max_tries=100) -> 
             lower = mid
         else:
             upper = mid
-
     else:
         raise Exception("Binary search exceeded max tries")
 
 
-def max_frontrun(pool: v3Pool, swap: SwapData, start=1e6, factor=2) -> int:
-    lower, upper = exponential_search(pool, swap, start=start, factor=factor)
-    return binary_search(pool, swap, lower, upper)
+def max_frontrun(
+    pool: v3Pool, swap: SwapData, start=1e6, factor=2, verbose=False
+) -> int:
+    lower, upper = exponential_search(pool, swap, start=start, factor=factor, verbose=verbose)
+    return binary_search(pool, swap, lower, upper, verbose=verbose)
 
 
 def single_sandwich_mev(
@@ -298,9 +304,9 @@ AutoSandwichResult = namedtuple(
 
 
 def auto_sandwich_mev(
-    pool: v3Pool, swap: SwapData, start=1e18, factor=2, pool_fee=True
+    pool: v3Pool, swap: SwapData, start=1e18, factor=2, pool_fee=True, verbose=False
 ) -> AutoSandwichResult:
-    frontrun_input = max_frontrun(pool, swap, start=start, factor=factor)
+    frontrun_input = max_frontrun(pool, swap, start=start, factor=factor, verbose=verbose)
     profit, gas_fee, prices = single_sandwich_mev(
         pool, swap, frontrun_input, pool_fee=pool_fee
     )
@@ -323,6 +329,14 @@ def persist_sandwich(sandwich: SimpleSandwich):
         session.commit()
 
 
+def is_processed(user_hash: str) -> bool:
+    with SessionLocalMP() as session:
+        existing_sandwich = (
+            session.query(SimpleSandwich).filter_by(user_hash=user_hash).first()
+        )
+        return existing_sandwich is not None
+
+
 def run_sandwiches(swaps: pd.DataFrame):
     curr_pool: v3Pool | None = None
     swap_dicts: Any = swaps.reset_index().to_dict(orient="records")
@@ -331,8 +345,12 @@ def run_sandwiches(swaps: pd.DataFrame):
 
     for swap_dict in it:
         it.set_postfix(errors=errors)
+
         try:
             swap = SwapData(**swap_dict)
+            if is_processed(swap.hash):
+                continue
+
             it.set_description(f"Pool: {swap.pool}, block: {swap.block_number}")
 
             if not curr_pool or curr_pool.pool != swap.pool:
@@ -342,7 +360,7 @@ def run_sandwiches(swaps: pd.DataFrame):
                     azure_storage_uri,
                     "uniswap-v3-pool-cache",
                     verbose=False,
-                    invalidate_before_date=datetime(2023, 8, 15, tzinfo=timezone.utc),
+                    invalidate_before_date=datetime(2023, 8, 16, tzinfo=timezone.utc),
                     pbar=it,
                 )
             if not curr_pool:
@@ -351,8 +369,8 @@ def run_sandwiches(swaps: pd.DataFrame):
             sandwich_result = auto_sandwich_mev(
                 curr_pool,
                 swap,
-                start=1e18,
-                factor=4,
+                start=1e16,
+                factor=8,
                 pool_fee=True,
             )
             profit_nofee, _, _ = single_sandwich_mev(
@@ -370,6 +388,8 @@ def run_sandwiches(swaps: pd.DataFrame):
                 token_out=swap.token1,
                 profit=sandwich_result.profit,
                 profit_nofee=profit_nofee,
+                profit_float=sandwich_result.profit,
+                profit_nofee_float=profit_nofee,
                 gas_fee_eth=sandwich_result.gas_fee,
                 frontrun_input=sandwich_result.frontrun_input,
                 price_baseline=sandwich_result.price_baseline,

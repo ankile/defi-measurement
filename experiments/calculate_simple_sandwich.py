@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pool_state import v3Pool
 from tqdm import tqdm
 
-from sqlalchemy import create_engine, Column, Integer, String, Double
+from sqlalchemy import create_engine, Column, Integer, String, Double, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
@@ -65,6 +65,9 @@ class SimpleSandwich(Base):
     price_frontrun = Column(Double, nullable=False)
     price_user = Column(Double, nullable=False)
     price_backrun = Column(Double, nullable=False)
+    profit_percent = Column(Double)
+    frontrun_input_float = Column(Double, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
 
 
 Base.metadata.create_all(engine_mp)
@@ -351,6 +354,7 @@ def run_sandwiches(swaps: pd.DataFrame):
         try:
             swap = SwapData(**swap_dict)
             if is_processed(swap.hash):
+                skipped += 1
                 continue
 
             it.set_description(f"Pool: {swap.pool}, block: {swap.block_number}")
@@ -398,6 +402,8 @@ def run_sandwiches(swaps: pd.DataFrame):
                 price_frontrun=sandwich_result.price_frontrun,
                 price_user=sandwich_result.price_user,
                 price_backrun=sandwich_result.price_backrun,
+                profit_percent=sandwich_result.profit / float(sandwich_result.frontrun_input) if float(sandwich_result.frontrun_input) > 0 else 0,
+                frontrun_input_float=float(sandwich_result.frontrun_input),
             )
 
             persist_sandwich(sandwich)

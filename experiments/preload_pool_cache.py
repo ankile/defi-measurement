@@ -44,8 +44,7 @@ def load_pool_from_blob(
     verbose: bool = True,
     invalidate_before_date: datetime | None = None,  # Add the optional invalidate date
     pbar: tqdm | None = None,
-    storage_seeding=False,
-) -> v3Pool | None:
+) -> v3Pool:
     
     # Initialize the BlobServiceClient
     blob_service_client = BlobServiceClient.from_connection_string(azure_connection_string)
@@ -85,11 +84,7 @@ def load_pool_from_blob(
             print("Loading pool from Azure blob storage cache")
         if pbar:
             pbar.set_postfix_str("Loading pool from Azure blob storage cache")
-        
-        # Download and load the blob
-        if storage_seeding:
-            return None
-        
+
         blob_data = blob_client.download_blob()
         pool = pickle.loads(blob_data.readall())
         return pool
@@ -166,7 +161,6 @@ if __name__ == "__main__":
                 container_name="uniswap-v3-pool-cache",
                 verbose=False,
                 pbar=pbar,
-                storage_seeding=True,
             )
         except AssertionError:
             failed_pools.append(pool_addr)

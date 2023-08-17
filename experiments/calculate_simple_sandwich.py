@@ -1,6 +1,8 @@
 import argparse
 import sys
 
+import numpy as np
+
 current_path = sys.path[0]
 sys.path.append(
     current_path[: current_path.find("defi-measurement")]
@@ -13,6 +15,7 @@ sys.path.append("..")
 import os
 import math
 
+from multiprocessing import Pool, cpu_count
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -68,18 +71,31 @@ class SimpleSandwich(Base):
     profit_percent = Column(Double)
     frontrun_input_float = Column(Double, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
+    user_input_float = Column(Double)
+    profit_per_user_input = Column(Double)
+    profit_usd = Column(Double)
 
 
 Base.metadata.create_all(engine_mp)
 
 
-def get_data():
+def get_data(unprocessed_only=False):
     # ## Get the Data
     query = """
         SELECT *
         FROM SWAP_LIMIT_PRICE AS LIM
         INNER JOIN MEMPOOL_TRANSACTIONS AS MEM ON LIM.transaction_hash = MEM.HASH
+        WHERE LIM.transaction_type = 'V3_SWAP_EXACT_IN'
     """
+
+    if unprocessed_only:
+        query += """
+            AND NOT EXISTS (
+                SELECT 1
+                FROM simple_sandwiches AS SS
+                WHERE SS.user_hash = MEM.HASH
+            )
+        """
 
     df = pd.read_sql_query(query, engine_mp)
 
@@ -130,9 +146,7 @@ def get_data():
     df_single_sorted = df_single.loc[sorted_indices]
 
     # Keep only the swap in subset for now
-    df_single_sorted = df_single_sorted[
-        df_single_sorted.transaction_type == "V3_SWAP_EXACT_IN"
-    ].drop(
+    df_single_sorted = df_single_sorted.drop(
         columns=[
             "transaction_type",
             "recipient",
@@ -341,10 +355,10 @@ def is_processed(user_hash: str) -> bool:
         return existing_sandwich is not None
 
 
-def run_sandwiches(swaps: pd.DataFrame):
+def run_sandwiches(swaps: pd.DataFrame, position=0):
     curr_pool: v3Pool | None = None
     swap_dicts: Any = swaps.reset_index().to_dict(orient="records")
-    it = tqdm(swap_dicts)
+    it = tqdm(swap_dicts, position=position)
     errors = 0
     skipped = 0
 
@@ -404,6 +418,8 @@ def run_sandwiches(swaps: pd.DataFrame):
                 price_backrun=sandwich_result.price_backrun,
                 profit_percent=sandwich_result.profit / float(sandwich_result.frontrun_input) if float(sandwich_result.frontrun_input) > 0 else 0,
                 frontrun_input_float=float(sandwich_result.frontrun_input),
+                user_input_float=float(swap.amountIn),
+                profit_per_user_input=sandwich_result.profit / float(swap.amountIn) if float(swap.amountIn) > 0 else 0,
             )
 
             persist_sandwich(sandwich)
@@ -414,17 +430,35 @@ def run_sandwiches(swaps: pd.DataFrame):
                 f.write(f"{swap_dict}\n{e}\n\n\n")
             continue
 
+def run_sandwich_parallel(args):
+    df, position = args
+    run_sandwiches(df, position=position)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--offset', type=int, default=0, help='Offset for the dataframe')
     parser.add_argument('--limit', type=int, default=None, help='Limit for the dataframe')
+    parser.add_argument('--n-cpus', type=int, default=None, help='Get help partitioning the calculations')
 
     args = parser.parse_args()
+    
+    df = get_data(unprocessed_only=True)
+    print(f"Loaded a total of {len(df)} swaps")
 
-    df = get_data()
+    if args.n_cpus is not None:
+        # Run the script in parallel
+        n_cpus = args.n_cpus if args.n_cpus > 0 else cpu_count()
+        print(f"Running in parallel with {n_cpus} cpus")
+        chunks = np.array_split(df, n_cpus) # type: ignore
+        args_list = [(chunk, i) for i, chunk in enumerate(chunks)]
+    
+        with Pool(n_cpus) as p:
+            p.map(run_sandwich_parallel, args_list) # type: ignore
+        
+    else:
+        # Run the script in serial
+        # Apply offset and limit to the dataframe
+        df_sliced: pd.DataFrame = df.iloc[args.offset:args.offset+args.limit if args.limit is not None else None, :] # type: ignore
 
-    # Apply offset and limit to the dataframe
-    df_sliced: pd.DataFrame = df.iloc[args.offset:args.offset+args.limit if args.limit is not None else None, :] # type: ignore
-
-    run_sandwiches(df_sliced)
+        run_sandwiches(df_sliced)

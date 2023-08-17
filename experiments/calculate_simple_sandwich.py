@@ -401,25 +401,30 @@ def run_sandwiches(swaps: pd.DataFrame, position=0):
             )
 
             sandwich = SimpleSandwich(
+                # Basic info about the swap
                 user_hash=swap.hash,
                 block_number=swap.block_number,
                 pool=swap.pool,
                 token_in=swap.token0,
                 token_out=swap.token1,
+                # Profit measures
                 profit=sandwich_result.profit,
                 profit_nofee=profit_nofee,
                 profit_float=sandwich_result.profit,
                 profit_nofee_float=profit_nofee,
                 gas_fee_eth=sandwich_result.gas_fee,
-                frontrun_input=sandwich_result.frontrun_input,
+                # Price measures for price trajectory plotting
                 price_baseline=sandwich_result.price_baseline,
                 price_frontrun=sandwich_result.price_frontrun,
                 price_user=sandwich_result.price_user,
                 price_backrun=sandwich_result.price_backrun,
-                profit_percent=sandwich_result.profit / float(sandwich_result.frontrun_input) if float(sandwich_result.frontrun_input) > 0 else 0,
+                # Input volume measures
+                frontrun_input=sandwich_result.frontrun_input,
                 frontrun_input_float=float(sandwich_result.frontrun_input),
                 user_input_float=float(swap.amountIn),
-                profit_per_user_input=sandwich_result.profit / float(swap.amountIn) if float(swap.amountIn) > 0 else 0,
+                # Relative profit measures
+                profit_percent=         sandwich_result.profit / float(sandwich_result.frontrun_input) if float(sandwich_result.frontrun_input) > 0 else 0,
+                profit_per_user_input=  sandwich_result.profit / float(swap.amountIn) if float(swap.amountIn) > 0 else 0,
             )
 
             persist_sandwich(sandwich)

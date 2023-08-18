@@ -380,7 +380,7 @@ def run_sandwiches(swaps: pd.DataFrame, position=0):
                     azure_storage_uri,
                     "uniswap-v3-pool-cache",
                     verbose=False,
-                    invalidate_before_date=datetime(2023, 8, 16, tzinfo=timezone.utc),
+                    invalidate_before_date=datetime(2023, 8, 18, tzinfo=timezone.utc),
                     pbar=it,
                 )
             if not curr_pool:

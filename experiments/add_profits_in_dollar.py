@@ -19,6 +19,8 @@ import pandas as pd
 
 from datetime import datetime, timezone
 
+import argparse
+
 
 # Set display options
 pd.set_option("display.max_colwidth", None)  # Display entire cell content
@@ -76,10 +78,18 @@ def get_token_info():
 
     token_info = token_info.dropna()
 
+    # Make a dictionary of the form {token: decimals}
+    token_info = token_info.to_dict()["decimals"]
+
     return token_info
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action="store_true", default=False, help="Enable debug mode")
+    args = parser.parse_args()
+
     token_info = get_token_info()
     session = SessionLocal()
 
@@ -91,31 +101,43 @@ if __name__ == "__main__":
     for row in it:
         it.set_postfix(errors=errors)
 
-        params = {
-            "chain": "eth",
-            "to_block": row.block_number,
-            "address": row.token_in,
-        }
         try:
+            params = {
+                "chain": "eth",
+                "to_block": row.block_number,
+                "address": row.token_in,
+            }
             result = evm_api.token.get_token_price(
                 api_key=moralis_api_key,
                 params=params, # type: ignore
             )
+
+            usd_price = result["usdPrice"]
+
+            if result is None or "usdPrice" not in result:
+                raise Exception('result is None or "usdPrice" not in result')
+
+            if (decimals := token_info.get(row.token_in, None)) is None:
+                params = {
+                    "chain": "eth",
+                    "addresses": [
+                        row.token_in,
+                    ]
+                }
+
+                result = evm_api.token.get_token_metadata(
+                    api_key=moralis_api_key,
+                    params=params, # type: ignore
+                )
+                decimals = int(result[0]["decimals"])
+
         except Exception as e:
+            if args.debug:
+                print(e)
             errors += 1
             continue
 
-        if result is None or "usdPrice" not in result:
-            errors += 1
-            continue
-
-        try:
-            decimals = token_info.loc[row.token_in, "decimals"]
-        except KeyError as e:
-            errors += 1
-            continue
-
-        profit_usd_value = (row.profit_float / (10**decimals)) * result["usdPrice"]
+        profit_usd_value = (row.profit_float / (10**decimals)) * usd_price
         
         # Update the table
         row.profit_usd = profit_usd_value

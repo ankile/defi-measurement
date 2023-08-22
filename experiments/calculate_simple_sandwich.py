@@ -128,7 +128,7 @@ def get_data(unprocessed_only=False):
         .sort_values("transaction_hash", ascending=False)
     )
 
-    single_swap_blocks = swap_counts[swap_counts == 1].sort_index()
+    single_swap_blocks = swap_counts[swap_counts.transaction_hash == 1].sort_index()
 
     df_single = dataset.set_index(["pool", "block_number"]).loc[
         single_swap_blocks.index

@@ -3,23 +3,14 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function getTransactionCounts() {
-	const queryResult: { hour: Date; transactioncount: number }[] = await prisma.$queryRaw`
-    SELECT 
-      DATE_TRUNC('hour', first_seen) as hour,
-      COUNT(hash) as transactionCount
-    FROM
-      mempool_transactions
-    WHERE
-      DATE_TRUNC('hour', first_seen) < DATE_TRUNC('hour', NOW())
-    GROUP BY
-      DATE_TRUNC('hour', first_seen)
-    ORDER BY
-      DATE_TRUNC('hour', first_seen);
+	const queryResult: { hour: Date; transaction_count: number }[] = await prisma.$queryRaw`
+    SELECT * FROM mempool_rate_per_hour
+    ORDER BY hour;
   `;
 
 	return queryResult.map((row) => ({
 		hour: row.hour,
-		transactionCount: Number(row.transactioncount),
+		transactionCount: Number(row.transaction_count),
 	}));
 }
 

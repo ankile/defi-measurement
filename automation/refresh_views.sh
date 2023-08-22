@@ -1,15 +1,12 @@
 #!/bin/bash
 
-# PostgreSQL connection details
-HOST="your_host"
-DB="your_database"
-USER="your_user"
-PASS="your_password"
+# Load environment variables from .env file
+source /home/azureuser/defi-measurement/.env
 
 # SQL command to refresh the materialized view
-SQL="REFRESH MATERIALIZED VIEW my_view;"
+SQL="REFRESH MATERIALIZED VIEW mempool_rate_per_hour;"
+
+echo "Refreshing materialized view..."
 
 # Execute the SQL command with psql
-export PGPASSWORD="$PASS"
-psql -h "$HOST" -d "$DB" -U "$USER" -c "$SQL"
-unset PGPASSWORD
+psql -h "$PGHOST" -d "$PGDATABASE" -U "$PGUSER" -c "$SQL" --no-password

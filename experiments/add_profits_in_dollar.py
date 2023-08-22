@@ -131,13 +131,14 @@ if __name__ == "__main__":
                 )
                 decimals = int(result[0]["decimals"])
 
+            profit_usd_value = (row.profit_float / (10**decimals)) * usd_price
         except Exception as e:
             if args.debug:
                 print(e)
             errors += 1
+            profit_usd_value = -1
             continue
 
-        profit_usd_value = (row.profit_float / (10**decimals)) * usd_price
         
         # Update the table
         row.profit_usd = profit_usd_value

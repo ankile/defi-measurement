@@ -27,8 +27,8 @@ async function writeToDb() {
       data: transactionBatch,
       skipDuplicates: true,
     });
-    transactionBatch = [];
     totalTransactions += transactionBatch.length;
+    transactionBatch = [];
     process.stdout.write(`\rTotal Transactions: ${totalTransactions}, last addition ${new Date()}`);
   } catch (err: any) {
     console.error(`[${new Date()}] Failed to write to the database, retrying in 5 seconds...`, err);

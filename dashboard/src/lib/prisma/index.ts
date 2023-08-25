@@ -76,27 +76,10 @@ export async function getSwapsV3MempoolShare() {
 		avg_total: Number;
 	};
 	const queryResult: QueryResultType[] = await prisma.$queryRaw`
-    WITH sums AS (
-      SELECT 
-        block_number,
-      MIN(block_ts) as block_ts,
-        SUM(CASE WHEN from_mempool = true THEN 1 ELSE 0 END) AS mempool_true, 
-        SUM(CASE WHEN from_mempool = false THEN 1 ELSE 0 END) AS mempool_false,
-        COUNT(*) AS total
-      FROM
-        swaps
-      WHERE block_number > 17552205
-      GROUP BY 
-        block_number
-    )
-    SELECT 
-      block_number,
-      block_ts,
-      AVG(mempool_true) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_mempool_true,
-      AVG(mempool_false) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_mempool_false,
-      AVG(total) OVER (ORDER BY block_number ROWS BETWEEN 99 PRECEDING AND CURRENT ROW) AS avg_total
-    FROM sums
-    ORDER BY block_number ASC;
+    SELECT
+      *
+    FROM
+      mempool_share
   `;
 
   return queryResult.map((row) => ({
@@ -112,9 +95,9 @@ export async function getSwapsV3MempoolShare() {
 export async function getPermutationSimulations(searchParams: URLSearchParams) {
   const { orderBy, order, limit, skip } = Object.fromEntries(searchParams.entries());
 
-  const queryResult = await prisma.permutationSimulation.findMany({
+  const queryResult = await prisma.permutation_simulations.findMany({
     orderBy: {
-      [orderBy ?? 'nSwaps']: order ?? 'desc',
+      [orderBy ?? 'n_swaps']: order ?? 'desc',
     },
     take: Number(limit ?? 5),
     skip: Number(skip ?? 0),

@@ -26,9 +26,9 @@ export async function getMempoolBlockDelayHistogram() {
         mempool_transactions 
         ON swaps.transaction_hash = mempool_transactions.hash
     GROUP BY
-      diffInSeconds
+      diffInSeconds 
     HAVING 
-        EXTRACT(EPOCH FROM (swaps.block_timestamp - date_trunc('second', mempool_transactions.first_seen))) <= 35
+        EXTRACT(EPOCH FROM (swaps.block_timestamp - date_trunc('second', mempool_transactions.first_seen))) <= 20
     ORDER BY
       diffInSeconds ASC;
   `;
@@ -42,10 +42,6 @@ export async function getMempoolBlockDelayHistogram() {
 }
 
 export async function getTableCounts() {
-	const [uniswapV2]: Array<{ count: number; latesttimestamp: Date, earliesttimestamp: Date }> = await prisma.$queryRaw`
-		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
-		FROM swaps_v2;
-	`;
 
 	const [uniswapV3]: Array<{ count: number; latesttimestamp: Date, earliesttimestamp: Date }> = await prisma.$queryRaw`
 		SELECT COUNT(*) as count, MAX(block_timestamp) as latestTimestamp, MIN(block_timestamp) as earliestTimestamp
@@ -58,11 +54,6 @@ export async function getTableCounts() {
 	`;
 
 	return {
-		uniswapV2: {
-			count: Number(uniswapV2.count),
-			latestTimestamp: new Date(uniswapV2.latesttimestamp),
-			earliestTimestamp: new Date(uniswapV2.earliesttimestamp),
-		},
 		uniswapV3: {
 			count: Number(uniswapV3.count),
 			latestTimestamp: new Date(uniswapV3.latesttimestamp),

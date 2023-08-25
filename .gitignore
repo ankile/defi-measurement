@@ -110,3 +110,5 @@ output
 *.backup.sql
 
 data.csv
+
+*.log

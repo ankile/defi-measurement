@@ -26,13 +26,12 @@ import argparse
 
 load_dotenv()
 
-postgres_uri_mp = os.environ["POSTGRESQL_URI_MP"]
-postgres_uri_us = os.environ["POSTGRESQL_URI_US"]
+postgres_uri = os.environ["POSTGRESQL_URI"]
 azure_storage_uri = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 
 Base = declarative_base()
-engine_mp = create_engine(postgres_uri_mp)
-SessionLocalMP = sessionmaker(bind=engine_mp)
+engine = create_engine(postgres_uri)
+SessionLocalMP = sessionmaker(bind=engine)
 
 
 class BlockPoolMetrics(Base):
@@ -70,7 +69,7 @@ class BlockPoolMetrics(Base):
     tstar_l2 = Column(Double, nullable=True)
     tstar_linf = Column(Double, nullable=True)
 
-Base.metadata.create_all(engine_mp)
+Base.metadata.create_all(engine)
 
 def get_swaps_for_address(address, min_block, max_block):
     return pd.read_sql_query(
@@ -80,7 +79,7 @@ def get_swaps_for_address(address, min_block, max_block):
         AND block_number <= {max_block}
         AND address = '{address}'
         """,
-        postgres_uri_us,
+        postgres_uri,
     )
 
 def get_token_info():
@@ -90,7 +89,7 @@ def get_token_info():
         WHERE decimals0 IS NOT NULL
         AND decimals1 IS NOT NULL
         """,
-        postgres_uri_us,
+        postgres_uri,
     ).set_index("pool")[["token0", "token1", "decimals0", "decimals1"]]
 
     return token_info.to_dict(orient="index")
@@ -103,24 +102,25 @@ def get_mev_boost_values() -> dict[int, float]:
         FROM
             mev_boost
         """,
-        postgres_uri_mp,
+        postgres_uri,
     )
     return dict(zip(res.block_number, res.mevboost_value))
 
 
-def get_pool_block_pairs(limit, offset) -> pd.DataFrame:
+def get_pool_block_pairs(*, limit, offset, only_unprocessed) -> pd.DataFrame:
     return pd.read_sql_query(
         f"""
         SELECT sc.address, sc.block_number FROM swap_counts AS sc
         INNER JOIN token_info AS ti ON sc.address = ti.pool
             AND ti.decimals0 IS NOT NULL AND ti.decimals1 IS NOT NULL
+        {"LEFT JOIN block_pool_metrics AS bpm ON sc.address = bpm.pool_address AND sc.block_number = bpm.block_number" if only_unprocessed else ""}
         WHERE sc.block_number >= 15537940 AND sc.block_number <= 17959956
+            {"AND bpm.pool_address IS NULL" if only_unprocessed else ""}
         ORDER BY sc.address ASC, sc.block_number ASC
         LIMIT {limit} OFFSET {offset}
         """,
-        postgres_uri_us,
+        postgres_uri,
     )
-
 
 def get_price(sqrt_price, pool_addr, token_info):
     return 1 / (sqrt_price**2) / 10 ** (token_info[pool_addr]["decimals0"] - token_info[pool_addr]["decimals1"])
@@ -129,14 +129,13 @@ def get_price(sqrt_price, pool_addr, token_info):
 def get_pool(address, it):
     return load_pool_from_blob(
         address,
-        postgres_uri_us,
+        postgres_uri,
         azure_storage_uri,
         "uniswap-v3-pool-cache",
         verbose=False,
         invalidate_before_date=datetime(2023, 8, 20, tzinfo=timezone.utc),
         pbar=it,
     )
-
 
 
 def norm(prices, norm):
@@ -150,7 +149,7 @@ def norm(prices, norm):
         raise ValueError("Invalid norm")
 
 
-def do_swap(swap, curr_price, pool):
+def do_swap(swap, curr_price, pool, token_info):
     token_in = token_info[swap.address]["token0"] if int(swap.amount0) > 0 else token_info[swap.address]["token1"]
     input_amount = int(swap.amount0) if int(swap.amount0) > 0 else int(swap.amount1)
 
@@ -167,16 +166,19 @@ def do_swap(swap, curr_price, pool):
     return heur
 
 
-def get_pool_block_count() -> int:
+def get_pool_block_count(*, only_unprocessed) -> int:
+
     n_pool_block_pairs = pd.read_sql_query(
-        """
+        f"""
         SELECT COUNT(*)
         FROM swap_counts AS sc
         INNER JOIN token_info AS ti ON sc.address = ti.pool
             AND ti.decimals0 IS NOT NULL AND ti.decimals1 IS NOT NULL
-        WHERE sc.block_number >= 15537940 AND sc.block_number <= 17959956;
+        {"LEFT JOIN block_pool_metrics AS bpm ON sc.address = bpm.pool_address AND sc.block_number = bpm.block_number" if only_unprocessed else ""}
+        WHERE sc.block_number >= 15537940 AND sc.block_number <= 17959956
+            {"AND bpm.pool_address IS NULL" if only_unprocessed else ""}
         """,
-        postgres_uri_us,
+        postgres_uri,
     ).iloc[0, 0]
 
     return int(n_pool_block_pairs)  # type: ignore
@@ -199,7 +201,7 @@ def run_swap_order(pool: v3Pool, swaps: Iterable, block_number: int, token_info)
     curr_price_sqrt = pool.getPriceAt(block_number)
 
     for swap in swaps:
-        heur = do_swap(swap, curr_price_sqrt, pool)
+        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
 
         prices.append(get_price(heur.sqrtP_next, swap.address, token_info))
         ordering.append(f"{swap.transaction_index:03}_{swap.log_index:03}")
@@ -249,8 +251,8 @@ def volume_heuristic(pool: v3Pool, swaps: pd.DataFrame, block_number: int, block
         if curr_price == baseline_price:
             # If we're at the baseline price, we can swap in either direction
             # Choose the one that moves the price the least
-            buy_diff = get_price(do_swap(buys[-1], curr_price_sqrt, pool).sqrtP_next, pool_addr, token_info) - baseline_price
-            sell_diff = get_price(do_swap(sells[-1], curr_price_sqrt, pool).sqrtP_next, pool_addr, token_info) - baseline_price
+            buy_diff = get_price(do_swap(buys[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info) - baseline_price
+            sell_diff = get_price(do_swap(sells[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info) - baseline_price
 
             if abs(buy_diff) < abs(sell_diff):
                 swap = buys.pop(-1)
@@ -261,7 +263,7 @@ def volume_heuristic(pool: v3Pool, swaps: pd.DataFrame, block_number: int, block
         else:
             swap = sells.pop(-1)
 
-        heur = do_swap(swap, curr_price_sqrt, pool)
+        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
 
         curr_price_sqrt = heur.sqrtP_next
         curr_price = get_price(curr_price_sqrt, swap.address, token_info)
@@ -270,7 +272,7 @@ def volume_heuristic(pool: v3Pool, swaps: pd.DataFrame, block_number: int, block
 
     # Process whatever is left in the tail
     for swap in (buys + sells)[::-1]:
-        heur = do_swap(swap, curr_price_sqrt, pool)
+        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
 
         curr_price_sqrt = heur.sqrtP_next
         prices.append(get_price(curr_price_sqrt, swap.address, token_info))
@@ -315,8 +317,8 @@ def copy_over(blockpool_metric: BlockPoolMetrics, to: list[str]):
         setattr(blockpool_metric, f"{field}_linf", blockpool_metric.realized_linf)
 
 
-def run_metrics(limit, offset, process_id, token_info, mev_boost_values):
-    pool_block_pairs = get_pool_block_pairs(limit, offset)
+def run_metrics(limit, offset, process_id, token_info, mev_boost_values, only_unprocessed):
+    pool_block_pairs = get_pool_block_pairs(limit=limit, offset=offset, only_unprocessed=only_unprocessed)
 
     it = tqdm(total=pool_block_pairs.shape[0], position=process_id, desc=f"[{process_id}] ({offset}-{offset+limit})")
     pool = get_pool(pool_block_pairs.address[0], it)
@@ -390,10 +392,13 @@ if __name__ == "__main__":
     parser.add_argument("--n-cpus", type=int, default=1, help="Number of CPUs to use")
     args = parser.parse_args()
 
-    print(f"Starting MEV Boost Data Metric Calculations with {args.n_cpus} CPUs")
-    n_pool_block_pairs = get_pool_block_count()
+    only_unprocessed = True
 
+    print(f"Starting MEV Boost Data Metric Calculations with {args.n_cpus} CPUs")
+
+    n_pool_block_pairs = get_pool_block_count(only_unprocessed=only_unprocessed)
     print(f"Processing {n_pool_block_pairs} pool-block pairs")
+
     mev_boost_values = get_mev_boost_values()
     token_info = get_token_info()
 
@@ -405,8 +410,14 @@ if __name__ == "__main__":
     # Define a function to be mapped
     def run_chunk(i):
         offset = i * chunk_size
-        run_metrics(chunk_size, offset, i, token_info, mev_boost_values)
-
+        run_metrics(
+            limit=chunk_size,
+            offset=offset,
+            process_id=i,
+            token_info=token_info,
+            mev_boost_values=mev_boost_values,
+            only_unprocessed=only_unprocessed,
+        )
 
     # Create a pool of workers and map the function across the input values
     with Pool(n_processes) as pool:

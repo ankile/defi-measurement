@@ -15,38 +15,48 @@ if (!ethereum_node_uri) {
 const prisma = new PrismaClient();
 const web3 = new ethers.providers.WebSocketProvider(ethereum_node_uri);
 
-const transactionBatchSize = 100;
+const transactionBatchSize = 1000;
 let transactionBatch: MempoolTransaction[] = [];
+const transactionQueue: MempoolTransaction[] = [];
+let totalTransactions = 0;
 
 
-async function writeToDb(data: MempoolTransaction[]) {
+async function writeToDb() {
   try {
     await prisma.mempoolTransaction.createMany({
       data: transactionBatch,
       skipDuplicates: true,
     });
     transactionBatch = [];
-    console.log("Added to the table", new Date());
+    totalTransactions += transactionBatch.length;
+    process.stdout.write(`\rTotal Transactions: ${totalTransactions}, last addition ${new Date()}`);
   } catch (err: any) {
     console.error(`[${new Date()}] Failed to write to the database, retrying in 5 seconds...`, err);
     await sendEmail("Database connection failure", "Failed to write to the database. Error: " + err.message);
-    setTimeout(() => writeToDb(data), 5000);
+    setTimeout(writeToDb, 5000);
   }
 }
 
 
-web3.on("pending", async (txHash: string) => {
+web3.on("pending", (txHash: string) => {
   // Get current time
   const now = new Date();
-  transactionBatch.push({
+  transactionQueue.push({
     hash: txHash,
     firstSeen: now,
   });
+});
+
+// Periodically process the queue
+setInterval(async () => {
+  while (transactionQueue.length > 0 && transactionBatch.length < transactionBatchSize) {
+    transactionBatch.push(transactionQueue.shift()!);
+  }
 
   if (transactionBatch.length >= transactionBatchSize) {
-    await writeToDb(transactionBatch);
+    await writeToDb();
   }
-});
+}, 1000); // Adjust the interval as needed
 
 
 process.on("unhandledRejection", async (reason, promise) => {

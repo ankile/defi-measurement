@@ -1,4 +1,3 @@
-from multiprocessing import Pool
 import os
 
 from datetime import datetime
@@ -12,7 +11,7 @@ from tqdm import tqdm
 
 load_dotenv(override=True)
 mongo_uri = os.environ["MONGODB_CONNECTION_STRING"]
-postgres_uri = os.environ["POSTGRESQL_URI_MP"]
+postgres_uri = os.environ["POSTGRESQL_URI"]
 
 # Connect to MongoDB
 mongo_client = MongoClient(mongo_uri, maxPoolSize=50, waitQueueTimeoutMS=100_000)
@@ -59,34 +58,18 @@ def process_chunk(skip, limit):
         progress_bar.update(1)
         progress_bar.set_postfix(total_inserted=total_inserted)
 
-
-
     return total_inserted
 
 
 if __name__ == "__main__":
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--n-processes", "-n", type=int, default=1)
-    parser.add_argument("--process-num", "-i", type=int, default=0)
-    args = parser.parse_args()
-
-    
     # Get the count of documents in the MongoDB collection that have not been synced
     total_documents = mongo_collection.count_documents(
         {"syncedToPostgres": {"$ne": True}}, maxTimeMS=8 * 60_000
     )
     print(f"Total documents to be processed: {total_documents}")
 
-    # Chunk size
-    chunk_size = total_documents // args.n_processes
-
-    # Create separate lists for the skip and limit values
-    skip_values = [i * chunk_size for i in range(args.n_processes)]
-    limit_values = [chunk_size] * args.n_processes
-
     # Use starmap to call process_chunk with different skip and limit values
-    total_inserted = process_chunk(skip_values[args.process_num], limit_values[args.process_num])
+    total_inserted = process_chunk(0, total_documents)
 
     # Sum the results to get the total number of records inserted
     print(f"Total records inserted: {total_inserted}")

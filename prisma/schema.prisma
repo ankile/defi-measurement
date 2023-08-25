@@ -2,42 +2,33 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator python {
-  provider             = "prisma-client-py"
-  recursive_type_depth = "-1"
-}
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("POSTGRESQL_URI")
 }
 
 model Swap {
-  transaction_hash  String?  @db.VarChar
-  block_timestamp   DateTime @db.Timestamptz(3)
+  block_ts          DateTime? @db.Timestamp(6)
   block_number      Int
-  transaction_index Int
+  tx_hash           String?
   log_index         Int
-  sender            String   @db.VarChar
-  recipient         String   @db.VarChar
-  amount0           String   @db.VarChar
-  amount1           String   @db.VarChar
-  sqrtPriceX96      String   @db.VarChar
-  liquidity         String   @db.VarChar
-  tick              String   @db.VarChar
-  address           String   @db.VarChar
-  from_address      String   @db.VarChar
-  to_address        String   @db.VarChar
-  from_mempool      Boolean?
+  sender            String?
+  recipient         String?
+  amount0           String?
+  amount1           String?
+  sqrtpricex96      String?
+  liquidity         String?
+  tick              Int?
+  address           String?
+  to_address        String?
+  from_address      String?
+  transaction_index Int
 
-  @@id([block_number, transaction_index, log_index])
-  @@index([address], map: "ix_swaps_address")
-  @@index([block_number], map: "ix_swaps_block_number")
-  @@index([from_address], map: "ix_swaps_from_address")
-  @@index([recipient], map: "ix_swaps_recipient")
-  @@index([sender], map: "ix_swaps_sender")
-  @@index([to_address], map: "ix_swaps_to_address")
-  @@index([transaction_hash], map: "ix_swaps_transaction_hash")
+  @@id([block_number, log_index, transaction_index])
+  @@index([address], map: "idx_add1")
+  @@index([block_number], map: "idx_blocknum")
+  @@index([block_number, address], map: "idx_swaps_blocknum_address")
+  @@index([block_number, transaction_index, log_index], map: "idx_swaps_columns")
   @@map("swaps")
 }
 
@@ -49,29 +40,6 @@ model MempoolTransaction {
   @@map("mempool_transactions")
 }
 
-model SwapV2 {
-  transaction_hash  String   @db.VarChar
-  address           String   @db.VarChar
-  block_timestamp   DateTime @db.Timestamp(6)
-  block_number      Int
-  transaction_index Int
-  log_index         Int
-  sender            String   @db.VarChar
-  amount0_in        String   @db.VarChar
-  amount1_in        String   @db.VarChar
-  amount0_out       String   @db.VarChar
-  amount1_out       String   @db.VarChar
-  to                String   @db.VarChar
-  from_mempool      Boolean
-
-  @@id([block_number, transaction_index, log_index])
-  @@index([address], map: "ix_swaps_v2_address")
-  @@index([block_number], map: "ix_swaps_v2_block_number")
-  @@index([sender], map: "ix_swaps_v2_sender")
-  @@index([transaction_hash], map: "ix_swaps_v2_transaction_hash")
-  @@map("swaps_v2")
-}
-
 model PermutationSimulation {
   block_number                       Int
   pool_address                       String   @db.VarChar
@@ -79,23 +47,201 @@ model PermutationSimulation {
   figure_location                    String   @db.VarChar
   ts                                 DateTime @db.Timestamptz(3)
   n_permutations                     Int
-  n_swaps                            Int?
-  original_std                       Float?
-  mean_permutation_std               Float?
-  original_area                      Float?
-  mean_permutation_area              Float?
-  max_abs_original_deviation         Float?
-  mean_max_abs_permutation_deviation Float?
+  n_swaps                            Int
+  original_std                       Float
+  mean_permutation_std               Float
+  original_area                      Float
+  mean_permutation_area              Float
+  max_abs_original_deviation         Float
+  mean_max_abs_permutation_deviation Float
+  created_at                         DateTime @default(now()) @db.Timestamptz(3)
 
   @@id([block_number, pool_address, n_permutations], map: "permutation_simulations_pk")
   @@map("permutation_simulations")
 }
 
-model TransactionSource {
-  hash    String  @id @db.VarChar
-  mempool Boolean
+model block_info {
+  block_number Decimal   @id @db.Decimal
+  block_ts     DateTime? @db.Timestamp(6)
+  min_gas      Decimal?  @db.Decimal
+  pct_25_gas   Decimal?  @db.Decimal
+  median_gas   Decimal?  @db.Decimal
+  mean_gas     Decimal?  @db.Decimal
+  pct_75_gas   Decimal?  @db.Decimal
+  max_gas      Decimal?  @db.Decimal
+}
 
-  @@index([hash], map: "ix_transaction_sources_hash")
-  @@index([mempool], map: "ix_transaction_sources_mempool")
-  @@map("transaction_sources")
+model block_pool_metrics {
+  block_number       Int
+  pool_address       String    @db.VarChar
+  num_transactions   Int?
+  n_buys             Int?
+  n_sells            Int?
+  baseline_price     Float?
+  created_at         DateTime? @db.Timestamp(6)
+  mev_boost          Boolean?
+  mev_boost_amount   Float?
+  realized_order     String[]  @db.Char(7)
+  realized_prices    Float[]
+  realized_l1        Float?
+  realized_l2        Float?
+  realized_linf      Float?
+  volume_heur_order  String[]  @db.Char(7)
+  volume_heur_prices Float[]
+  volume_heur_l1     Float?
+  volume_heur_l2     Float?
+  volume_heur_linf   Float?
+  tstar_l1           Float?
+  tstar_l2           Float?
+  tstar_linf         Float?
+
+  @@id([block_number, pool_address])
+}
+
+model collects {
+  block_ts     DateTime? @db.Timestamp(6)
+  block_number Decimal?  @db.Decimal
+  tx_hash      String
+  log_index    Decimal   @db.Decimal
+  tokenid      Decimal?  @db.Decimal
+  recipient    String?
+  amount0      String?
+  amount1      String?
+
+  @@id([tx_hash, log_index])
+}
+
+model factory {
+  block_ts     DateTime? @db.Timestamp(6)
+  block_number Int?
+  tx_hash      String?
+  log_index    Int?
+  token0       String?
+  token1       String?
+  fee          Int?
+  tickspacing  Int?
+  pool         String    @id
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model initialize {
+  block_ts     DateTime? @db.Timestamp(6)
+  block_number Decimal?  @db.Decimal
+  tx_hash      String?
+  log_index    Decimal?  @db.Decimal
+  sqrtpricex96 String?
+  tick         Decimal?  @db.Decimal
+  address      String?
+
+  @@ignore
+}
+
+model mb {
+  block_ts          DateTime? @db.Timestamp(6)
+  block_number      Int
+  tx_hash           String?
+  log_index         Int
+  address           String?
+  owner             String?
+  ticklower         Int?
+  tickupper         Int?
+  amount            String?
+  amount0           String?
+  amount1           String?
+  tokenid           Decimal?  @db.Decimal
+  type              Int?
+  to_address        String?
+  from_address      String?
+  transaction_index Int
+
+  @@id([block_number, log_index, transaction_index])
+  @@index([address], map: "idx_add2")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model mev_boost {
+  date            DateTime? @db.Timestamp(6)
+  slot            BigInt?
+  block_number    BigInt?
+  relay           String?
+  builder_pubkey  String?
+  proposer_pubkey String?
+  mevboost_value  Float?
+  builder         String?
+  validator       String?
+
+  @@ignore
+}
+
+model simple_sandwiches {
+  user_hash             String   @id @db.VarChar
+  block_number          Int
+  pool                  String   @db.VarChar
+  token_in              String   @db.VarChar
+  token_out             String   @db.VarChar
+  profit                String   @db.VarChar
+  profit_nofee          String   @db.VarChar
+  profit_float          Float
+  profit_nofee_float    Float
+  gas_fee_eth           Float
+  frontrun_input        String   @db.VarChar
+  price_baseline        Float
+  price_frontrun        Float
+  price_user            Float
+  price_backrun         Float
+  profit_percent        Float?
+  frontrun_input_float  Float?
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  user_input_float      Float?
+  profit_per_user_input Float?
+  profit_usd            Float?
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model swap_limit_price {
+  transaction_type String? @db.VarChar
+  transaction_hash String? @db.VarChar
+  recipient        String? @db.VarChar
+  amountIn         String? @db.VarChar
+  amountOut        String? @db.VarChar
+  amountOutMin     String? @db.VarChar
+  amountInMax      String? @db.VarChar
+  payerIsUser      String? @db.VarChar
+  token0           String? @db.VarChar
+  fee              String? @db.VarChar
+  token1           String? @db.VarChar
+  pool             String? @db.VarChar
+
+  @@ignore
+}
+
+model swaps_gas {
+  block_timestamp             DateTime? @db.Timestamp(6)
+  address                     String?   @db.VarChar
+  transaction_hash            String    @id @db.VarChar
+  nonce                       BigInt?
+  gas                         BigInt?
+  gas_price                   BigInt?
+  receipt_cumulative_gas_used BigInt?
+  receipt_gas_used            BigInt?
+  max_fee_per_gas             BigInt?
+  max_priority_fee_per_gas    BigInt?
+  transaction_type            BigInt?
+  receipt_effective_gas_price BigInt?
+}
+
+model token_info {
+  block_timestamp  DateTime? @db.Timestamptz(3)
+  block_number     Int?
+  transaction_hash String?   @db.VarChar
+  log_index        Int?
+  token0           String?   @db.VarChar
+  token1           String?   @db.VarChar
+  fee              String?   @db.VarChar
+  tick_spacing     String?   @db.VarChar
+  pool             String    @id @unique(map: "idx_pool") @db.VarChar
+  token0symbol     String?   @db.VarChar
+  decimals0        Int?
+  token1symbol     String?   @db.VarChar
+  decimals1        Int?
 }

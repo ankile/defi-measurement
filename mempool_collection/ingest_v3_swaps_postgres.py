@@ -34,10 +34,7 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
 )
-from sqlalchemy.orm.mapper import Mapper
 from datetime import datetime
-
-from pymongo import MongoClient, UpdateOne, DESCENDING, ASCENDING, InsertOne, DeleteOne
 
 
 load_dotenv(override=True)
@@ -50,13 +47,6 @@ assert postgres_uri is not None, "POSTGRESQL_URI is not set in .env file"
 
 engine = create_engine(postgres_uri)
 
-# Connect to mongodb
-client = MongoClient(os.getenv("MONGO_URI"))
-
-# Get database
-mempool = client.transactions.mempool
-
-mempool.estimated_document_count()
 
 metadata = MetaData()
 
@@ -70,11 +60,9 @@ Base = declarative_base()
 class Swap(Base):
     __tablename__ = "swaps"
 
-    # id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    transaction_hash = Column(String, index=True)
-    block_timestamp = Column(DateTime, nullable=False)
+    block_ts = Column(DateTime, nullable=False)
     block_number = Column(Integer, nullable=False, index=True, primary_key=True)
-    transaction_index = Column(Integer, nullable=False, primary_key=True)
+    tx_hash = Column(String, index=True)
     log_index = Column(Integer, nullable=False, primary_key=True)
     sender = Column(String, nullable=False, index=True)
     recipient = Column(String, nullable=False, index=True)
@@ -84,9 +72,9 @@ class Swap(Base):
     liquidity = Column(String, nullable=False)
     tick = Column(String, nullable=False)
     address = Column(String, nullable=False, index=True)
-    from_address = Column(String, nullable=False, index=True)
     to_address = Column(String, nullable=False, index=True)
-    from_mempool = Column(Boolean)
+    from_address = Column(String, nullable=False, index=True)
+    transaction_index = Column(Integer, nullable=False, primary_key=True)
 
 
 # Create a Session class bound to this engine

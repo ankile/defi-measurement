@@ -33,19 +33,21 @@ from sqlalchemy import create_engine, Column, Integer, String, Double, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 
-from experiments.preload_pool_cache import load_pool_from_blob
+from computation_scripts.preload_pool_cache import load_pool_from_blob
+
+# Create the `output` directory if it doesn't exist
+if not os.path.exists("output"):
+    os.makedirs("output")
 
 
 # Read in the environment variables
-postgres_uri_mp = os.environ["POSTGRESQL_URI_MP"]
-postgres_uri_us = os.environ["POSTGRESQL_URI_US"]
+postgres_uri = os.environ["POSTGRESQL_URI"]
 azure_storage_uri = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 
 Base = declarative_base()
 
-engine_mp = create_engine(postgres_uri_mp)
-engine_us = create_engine(postgres_uri_us)
-SessionLocalMP = sessionmaker(bind=engine_mp)
+engine = create_engine(postgres_uri)
+SessionLocal = sessionmaker(bind=engine)
 
 program_start = datetime.now()
 
@@ -76,7 +78,7 @@ class SimpleSandwich(Base):
     profit_usd = Column(Double)
 
 
-Base.metadata.create_all(engine_mp)
+Base.metadata.create_all(engine)
 
 
 def get_data(unprocessed_only=False):
@@ -97,7 +99,7 @@ def get_data(unprocessed_only=False):
             )
         """
 
-    df = pd.read_sql_query(query, engine_mp)
+    df = pd.read_sql_query(query, engine)
 
     block_numbers = pd.read_sql_query(
         """
@@ -106,7 +108,7 @@ def get_data(unprocessed_only=False):
         WHERE block_number >= 17400000
         ORDER BY block_ts ASC
         """,
-        engine_us,
+        engine,
     ).set_index("tx_hash")
 
     block_number_dict = block_numbers[
@@ -342,13 +344,13 @@ def auto_sandwich_mev(
 
 
 def persist_sandwich(sandwich: SimpleSandwich):
-    with SessionLocalMP() as session:
+    with SessionLocal() as session:
         session.add(sandwich)
         session.commit()
 
 
 def is_processed(user_hash: str) -> bool:
-    with SessionLocalMP() as session:
+    with SessionLocal() as session:
         existing_sandwich = (
             session.query(SimpleSandwich).filter_by(user_hash=user_hash).first()
         )
@@ -376,7 +378,7 @@ def run_sandwiches(swaps: pd.DataFrame, position=0):
             if not curr_pool or curr_pool.pool != swap.pool:
                 curr_pool = load_pool_from_blob(
                     swap.pool,
-                    postgres_uri_us,
+                    postgres_uri,
                     azure_storage_uri,
                     "uniswap-v3-pool-cache",
                     verbose=False,

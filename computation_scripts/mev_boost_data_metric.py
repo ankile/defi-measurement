@@ -24,6 +24,10 @@ from tqdm import tqdm
 
 import argparse
 
+# If the `output` directory doesn't exist, create it
+if not os.path.exists("output"):
+    os.mkdir("output")
+
 load_dotenv()
 
 postgres_uri = os.environ["POSTGRESQL_URI"]
@@ -69,7 +73,9 @@ class BlockPoolMetrics(Base):
     tstar_l2 = Column(Double, nullable=True)
     tstar_linf = Column(Double, nullable=True)
 
+
 Base.metadata.create_all(engine)
+
 
 def get_swaps_for_address(address, min_block, max_block):
     return pd.read_sql_query(
@@ -81,6 +87,7 @@ def get_swaps_for_address(address, min_block, max_block):
         """,
         postgres_uri,
     )
+
 
 def get_token_info():
     token_info = pd.read_sql_query(
@@ -121,6 +128,7 @@ def get_pool_block_pairs(*, limit, offset, only_unprocessed) -> pd.DataFrame:
         """,
         postgres_uri,
     )
+
 
 def get_price(sqrt_price, pool_addr, token_info):
     return 1 / (sqrt_price**2) / 10 ** (token_info[pool_addr]["decimals0"] - token_info[pool_addr]["decimals1"])
@@ -167,7 +175,6 @@ def do_swap(swap, curr_price, pool, token_info):
 
 
 def get_pool_block_count(*, only_unprocessed) -> int:
-
     n_pool_block_pairs = pd.read_sql_query(
         f"""
         SELECT COUNT(*)
@@ -210,14 +217,18 @@ def run_swap_order(pool: v3Pool, swaps: Iterable, block_number: int, token_info)
     return prices, ordering
 
 
-def realized_measurement(pool: v3Pool, swaps: pd.DataFrame, block_number: int, blockpool_metric: BlockPoolMetrics, token_info: dict):
+def realized_measurement(
+    pool: v3Pool, swaps: pd.DataFrame, block_number: int, blockpool_metric: BlockPoolMetrics, token_info: dict
+):
     # Run the realized measurement
     prices, ordering = run_swap_order(pool, swaps.itertuples(index=False, name="Swap"), block_number, token_info)
 
     set_metrics(blockpool_metric, "realized", prices, ordering)
 
 
-def volume_heuristic(pool: v3Pool, swaps: pd.DataFrame, block_number: int, blockpool_metric: BlockPoolMetrics, token_info: dict):
+def volume_heuristic(
+    pool: v3Pool, swaps: pd.DataFrame, block_number: int, blockpool_metric: BlockPoolMetrics, token_info: dict
+):
     pool_addr = blockpool_metric.pool_address
     baseline_price = blockpool_metric.baseline_price
 
@@ -251,8 +262,14 @@ def volume_heuristic(pool: v3Pool, swaps: pd.DataFrame, block_number: int, block
         if curr_price == baseline_price:
             # If we're at the baseline price, we can swap in either direction
             # Choose the one that moves the price the least
-            buy_diff = get_price(do_swap(buys[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info) - baseline_price
-            sell_diff = get_price(do_swap(sells[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info) - baseline_price
+            buy_diff = (
+                get_price(do_swap(buys[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info)
+                - baseline_price
+            )
+            sell_diff = (
+                get_price(do_swap(sells[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info)
+                - baseline_price
+            )
 
             if abs(buy_diff) < abs(sell_diff):
                 swap = buys.pop(-1)
@@ -344,7 +361,6 @@ def run_metrics(limit, offset, process_id, token_info, mev_boost_values, only_un
             it.set_postfix(errors=errors, successes=successes)
             it.update(1)
 
-
             try:
                 swaps = swaps_for_pool[swaps_for_pool.block_number == block_number].sort_values("transaction_index")
 
@@ -382,7 +398,7 @@ def run_metrics(limit, offset, process_id, token_info, mev_boost_values, only_un
 
             except Exception as e:
                 errors += 1
-                with open(f"error-{program_start}.log", "a") as f:
+                with open(f"outout/error-{program_start}.log", "a") as f:
                     f.write(f"Error processing block {block_number} for pool {pool_addr}: {e}\n")
                 continue
 
@@ -397,7 +413,7 @@ if __name__ == "__main__":
     print(f"Starting MEV Boost Data Metric Calculations with {args.n_cpus} CPUs")
 
     n_pool_block_pairs = get_pool_block_count(only_unprocessed=only_unprocessed)
-    print(f"Processing {n_pool_block_pairs} pool-block pairs")
+    print(f"Processing {n_pool_block_pairs:,} pool-block pairs")
 
     mev_boost_values = get_mev_boost_values()
     token_info = get_token_info()

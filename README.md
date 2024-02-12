@@ -1,4 +1,15 @@
-# MEV Measurement in DEX
+# I See You!
+
+Please consider citing our work if you find the work, code, or data helpful.
+
+```latex
+@inproceedings{ankile2023see,
+  title={I See You! Robust Measurement of Adversarial Behavior},
+  author={Ankile, Lars and Ferreira, Matheus XV and Parkes, David},
+  booktitle={Multi-Agent Security Workshop@ NeurIPS'23},
+  year={2023}
+}
+```
 
 
 ## Data

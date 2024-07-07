@@ -1,0 +1,3 @@
+[submodule "v3-simulator"]
+	path = v3-simulator
+	url = git@github.com:ankile/uniswap-v3-sim.git

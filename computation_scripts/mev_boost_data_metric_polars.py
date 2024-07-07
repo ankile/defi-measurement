@@ -497,20 +497,20 @@ def run_metrics(
             continue
 
         # Reuse the same pool object if the address is the same
-        if pool is None or pool_addr != pool.pool:
-            pool = get_pool(pool_addr, update=pull_latest_data)
+        try:
+            if pool is None or pool_addr != pool.pool:
+                pool = get_pool(pool_addr, update=pull_latest_data)
 
-        min_block, max_block = get_min_max_block(group)
-        swaps_for_pool = get_swaps_for_address(pool_addr, min_block=min_block, max_block=max_block)
+            min_block, max_block = get_min_max_block(group)
+            swaps_for_pool = get_swaps_for_address(pool_addr, min_block=min_block, max_block=max_block)
 
-        token_info = all_token_info[pool_addr]
+            token_info = all_token_info[pool_addr]
 
-        for block_number in group["block_number"].unique():
-            block_number = int(block_number)
-            it.set_postfix(errors=errors, successes=successes)
-            it.update(1)
+            for block_number in group["block_number"].unique():
+                block_number = int(block_number)
+                it.set_postfix(errors=errors, successes=successes)
+                it.update(1)
 
-            try:
                 swaps = swaps_for_pool.filter(pl.col("block_number") == block_number).sort("transaction_index")
 
                 if swaps.height == 0:
@@ -545,13 +545,13 @@ def run_metrics(
 
                 successes += 1
 
-            except Exception as e:
-                if reraise_exceptions:
-                    raise e
-                errors += 1
-                with open(f"output/error-{program_start}.log", "a") as f:
-                    f.write(f"Error processing block {block_number} for pool {pool_addr}: {e}\n")
-                continue
+        except Exception as e:
+            if reraise_exceptions:
+                raise e
+            errors += 1
+            with open(f"output/error-{program_start}.log", "a") as f:
+                f.write(f"Error processing block {block_number} for pool {pool_addr}: {e}\n")
+            continue
 
     # Write any remaining rows in the buffer
     write_buffer()
@@ -595,7 +595,7 @@ if __name__ == "__main__":
             mev_boost_values=mev_boost_values,
             only_unprocessed=only_unprocessed,
             pull_latest_data=True,
-            reraise_exceptions=True,  # Set to True to debug
+            reraise_exceptions=False,  # Set to True to debug
         )
 
     if n_processes == 1:

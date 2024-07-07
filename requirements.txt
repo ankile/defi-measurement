@@ -46,6 +46,7 @@ executing==1.2.0
 fastjsonschema==2.17.1
 fonttools==4.39.4
 fqdn==1.5.1
+frozendict==2.3.8
 frozenlist==1.3.3
 gcloud==0.18.3
 google-api-core==2.11.1
@@ -68,6 +69,7 @@ httplib2==0.22.0
 httpx==0.24.1
 idna==3.4
 importlib-metadata==6.6.0
+ipdb==0.13.13
 ipykernel==6.23.1
 ipython==8.14.0
 ipython-genutils==0.2.0
@@ -90,11 +92,13 @@ jupyterlab-pygments==0.2.2
 jupyterlab-widgets==3.0.7
 keyring==23.13.1
 kiwisolver==1.4.4
+llvmlite==0.40.1
 lru-dict==1.2.0
 MarkupSafe==2.1.3
 matplotlib==3.7.1
 matplotlib-inline==0.1.6
 mistune==3.0.1
+moralis==0.1.37
 more-itertools==9.1.0
 msal==1.22.0
 msal-extensions==1.0.0
@@ -111,7 +115,7 @@ nest-asyncio==1.5.6
 nodeenv==1.8.0
 notebook==6.5.4
 notebook_shim==0.2.3
-numpy==1.24.3
+numpy==2.0.0
 oauth2client==4.1.3
 oauthlib==3.2.2
 overrides==7.3.1
@@ -123,10 +127,12 @@ pandocfilters==1.5.0
 parsimonious==0.9.0
 parso==0.8.3
 pathos==0.3.0
+patsy==0.5.3
 pexpect==4.8.0
 pickleshare==0.7.5
 Pillow==9.5.0
 platformdirs==3.5.1
+polars==1.0.0
 portalocker==2.7.0
 pox==0.3.2
 ppft==1.7.6.6
@@ -168,14 +174,14 @@ rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rlp==3.0.0
 rsa==4.9
-scipy==1.11.0
-seaborn==0.12.2
+seaborn==0.13.0
 Send2Trash==1.8.2
 six==1.16.0
 sniffio==1.3.0
 soupsieve==2.4.1
 SQLAlchemy==2.0.17
 stack-data==0.6.2
+statsmodels==0.14.0
 terminado==0.17.1
 tinycss2==1.2.1
 tomlkit==0.11.8
@@ -186,10 +192,11 @@ traitlets==5.9.0
 typeguard==4.0.0
 types-tqdm==4.65.0.1
 typing-inspect==0.9.0
-typing_extensions==4.6.3
+typing_extensions==4.3.0
 tzdata==2023.3
 uri-template==1.2.0
 urllib3==1.26.16
+-e git+ssh://git@github.com/ankile/uniswap-v3-sim.git@aee3d12f0a1ac20079b5ba3ea4549686f41d944f#egg=v3_polars
 wcwidth==0.2.6
 web3==6.4.0
 webcolors==1.13

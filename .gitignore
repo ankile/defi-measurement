@@ -112,3 +112,11 @@ output
 data.csv
 
 *.log
+
+data/
+
+venv*
+
+.env.old
+
+*.parquet.gzip

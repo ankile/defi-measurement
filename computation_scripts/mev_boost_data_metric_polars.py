@@ -4,13 +4,12 @@ from pathlib import Path
 import polars as pl
 
 import numpy as np
-import pandas as pd
 from dotenv import load_dotenv
 from decimal import Decimal
 
 from ipdb import set_trace as bp
 
-from typing import Dict, Any
+from typing import Dict, Any, Iterator
 
 
 from datetime import datetime
@@ -128,6 +127,11 @@ class BlockPoolMetrics:
         )
 
 
+class Swap:
+    amount0: str
+    amount1: str
+    block_number: int
+
 def get_swaps_for_address(address: str, min_block: int, max_block: int) -> pl.DataFrame:
     # Create a lazy frame from all parquet files
     df = pl.scan_parquet(DATA_PATH / "pool_swap_events" / "*.parquet")
@@ -224,34 +228,36 @@ def get_pool_block_pairs(*, limit: int, offset: int, only_unprocessed: bool) -> 
     return query.collect()
 
 
-def get_price(sqrt_price, pool_addr, token_info):
-    return 1 / (sqrt_price**2) / 10 ** (token_info[pool_addr]["decimals0"] - token_info[pool_addr]["decimals1"])
+def get_price(sqrt_price: float, token_info: dict):
+    # `token_info` is a dictionary with the info for the specific pool in question
+    return 1 / (sqrt_price**2) / 10 ** (token_info["decimals0"] - token_info["decimals1"])
 
 
 def get_pool(address, update=False):
     return v3Pool(
-        address,
-        "ethereum",
-        update=update,
+        pool=address,
+        chain="ethereum",
         update_from="allium",
+        update=update,
     )
 
 
-def do_swap(swap, curr_price, pool, token_info):
-    token_in = token_info[swap.address]["token0"] if int(swap.amount0) > 0 else token_info[swap.address]["token1"]
-    input_amount = int(swap.amount0) if int(swap.amount0) > 0 else int(swap.amount1)
+def do_swap(swap: dict, curr_price: float, pool: v3Pool, token_info: dict) -> float:
+    # bp()
+    token_in = token_info["token0"] if float(swap["amount0"]) > 0 else token_info["token1"]
+    input_amount = float(swap["amount0"]) if float(swap["amount0"]) > 0 else float(swap["amount1"])
 
-    _, heur = pool.swapIn(
+    _, (sqrt_price_next, _, _) = pool.swapIn(
         {
             "tokenIn": token_in,
-            "input": input_amount,
-            "as_of": swap.block_number,
-            "gas": True,
+            "swapIn": input_amount,
+            "as_of": swap["block_number"],
+            "fees": True,
             "givenPrice": curr_price,
         }
     )
 
-    return heur
+    return sqrt_price_next
 
 
 def get_pool_block_count(*, only_unprocessed: bool) -> int:
@@ -303,17 +309,17 @@ def set_metrics(blockpool_metric, field: str, prices: list, ordering: list):
     setattr(blockpool_metric, f"{field}_linf", norm(prices_np, ord=np.inf))  # type: ignore
 
 
-def run_swap_order(pool: v3Pool, swaps: Iterable, block_number: int, token_info):
+def run_swap_order(pool: v3Pool, swaps: Iterator[dict], block_number: int, token_info: dict):
     prices = []
     ordering = []
-    curr_price_sqrt = pool.getPriceAt(block_number)
+    curr_price_sqrt: float = pool.getPriceAt(block_number)
 
     for swap in swaps:
-        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
+        sqrt_price_next = do_swap(swap, curr_price_sqrt, pool, token_info)
 
-        prices.append(get_price(heur.sqrtP_next, swap.address, token_info))
-        ordering.append(f"{swap.transaction_index:03}_{swap.log_index:03}")
-        curr_price_sqrt = heur.sqrtP_next
+        prices.append(get_price(sqrt_price_next, token_info))
+        ordering.append(f"{swap['transaction_index']:03}_{swap['log_index']:03}")
+        curr_price_sqrt = sqrt_price_next
 
     return prices, ordering
 
@@ -322,7 +328,8 @@ def realized_measurement(
     pool: v3Pool, swaps: pl.DataFrame, block_number: int, blockpool_metric: BlockPoolMetrics, token_info: Dict[str, Any]
 ):
     # Convert Polars DataFrame to an iterator of named tuples
-    swap_iterator = swaps.iter_rows(named=True)
+    swap_iterator: Iterator[dict] = swaps.iter_rows(named=True)
+
 
     # Run the realized measurement
     prices, ordering = run_swap_order(pool, swap_iterator, block_number, token_info)
@@ -338,7 +345,7 @@ def volume_heuristic(
 
     # Run the volume heuristic measurement
     curr_price_sqrt = cast(float, pool.getPriceAt(block_number))
-    curr_price = get_price(curr_price_sqrt, pool_addr, token_info)
+    curr_price = get_price(curr_price_sqrt, token_info)
 
     prices = []
     ordering = []
@@ -367,11 +374,11 @@ def volume_heuristic(
             # If we're at the baseline price, we can swap in either direction
             # Choose the one that moves the price the least
             buy_diff = (
-                get_price(do_swap(buys[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info)
+                get_price(do_swap(buys[-1], curr_price_sqrt, pool, token_info), token_info)
                 - baseline_price
             )
             sell_diff = (
-                get_price(do_swap(sells[-1], curr_price_sqrt, pool, token_info).sqrtP_next, pool_addr, token_info)
+                get_price(do_swap(sells[-1], curr_price_sqrt, pool, token_info), token_info)
                 - baseline_price
             )
 
@@ -384,19 +391,19 @@ def volume_heuristic(
         else:
             swap = sells.pop(-1)
 
-        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
+        sqrt_price_next = do_swap(swap, curr_price_sqrt, pool, token_info)
 
-        curr_price_sqrt = heur.sqrtP_next
-        curr_price = get_price(curr_price_sqrt, swap["address"], token_info)
+        curr_price_sqrt = sqrt_price_next
+        curr_price = get_price(curr_price_sqrt, token_info)
         prices.append(curr_price)
         ordering.append(f"{swap['transaction_index']:03}_{swap['log_index']:03}")
 
     # Process whatever is left in the tail
     for swap in (buys + sells)[::-1]:
-        heur = do_swap(swap, curr_price_sqrt, pool, token_info)
+        sqrt_price_next = do_swap(swap, curr_price_sqrt, pool, token_info)
 
-        curr_price_sqrt = heur.sqrtP_next
-        prices.append(get_price(curr_price_sqrt, swap["address"], token_info))
+        curr_price_sqrt = sqrt_price_next
+        prices.append(get_price(curr_price_sqrt, token_info))
         ordering.append(f"{swap['transaction_index']:03}_{swap['log_index']:03}")
 
     blockpool_metric.volume_heur_prices = prices
@@ -415,8 +422,8 @@ def tstar(
     if swaps.height > 7:
         return
 
-    # Convert Polars DataFrame to a list of dictionaries
-    swaps_list = swaps.to_dicts()
+    # Convert 
+    swaps_list = swaps.iter_rows(named=True)
 
     for swap_perm in permutations(swaps_list):
         prices, _ = run_swap_order(pool, swap_perm, block_number, token_info)
@@ -454,9 +461,11 @@ def run_metrics(
     limit: int,
     offset: int,
     process_id: int,
-    token_info: Dict[str, Any],
+    all_token_info: Dict[str, Any],
     mev_boost_values: Dict[int, float],
     only_unprocessed: bool,
+    pull_latest_data: bool = False,
+    reraise_exceptions: bool = False,
 ):
 
     def write_buffer():
@@ -469,11 +478,11 @@ def run_metrics(
             df.write_parquet(output_file)
             buffer = []
 
-    output_file = DATA_PATH / "block_pool_metrics" / f"block_pool_metrics_{offset}-{offset+limit}.parquet"
+    output_file = DATA_PATH / "pool_block_metrics" / f"block_pool_metrics_{offset}-{offset+limit}.parquet"
     pool_block_pairs: pl.DataFrame = get_pool_block_pairs(limit=limit, offset=offset, only_unprocessed=only_unprocessed)
 
     it = tqdm(total=pool_block_pairs.height, position=process_id, desc=f"[{process_id}] ({offset}-{offset+limit})")
-    pool = get_pool(pool_block_pairs.select("address").row(0)[0])
+    pool = None
 
     program_start = datetime.now()
 
@@ -481,17 +490,20 @@ def run_metrics(
     successes = 0
     buffer = []
 
-    for pool_addr, group in pool_block_pairs.group_by("address"):
+    for (pool_addr, ), group in pool_block_pairs.group_by("address", maintain_order=True):
         it.set_description(f"[{process_id}] ({offset}-{offset+limit}) Processing pool {pool_addr}")
 
-        if pool_addr not in token_info:
+        if pool_addr not in all_token_info:
             continue
 
-        if pool_addr != pool.pool:
-            pool = get_pool(pool_addr)
+        # Reuse the same pool object if the address is the same
+        if pool is None or pool_addr != pool.pool:
+            pool = get_pool(pool_addr, update=pull_latest_data)
 
         min_block, max_block = get_min_max_block(group)
         swaps_for_pool = get_swaps_for_address(pool_addr, min_block=min_block, max_block=max_block)
+
+        token_info = all_token_info[pool_addr]
 
         for block_number in group["block_number"].unique():
             block_number = int(block_number)
@@ -514,7 +526,7 @@ def run_metrics(
                     n_sells=swaps.filter(pl.col("amount0").str.starts_with("-")).height,
                     mev_boost=block_number in mev_boost_values,
                     mev_boost_amount=mev_boost_values.get(block_number, 0),
-                    baseline_price=get_price(curr_price_sqrt, pool_addr, token_info),
+                    baseline_price=get_price(curr_price_sqrt, token_info),
                 )
 
                 realized_measurement(pool, swaps, block_number, blockpool_metric, token_info)
@@ -534,6 +546,8 @@ def run_metrics(
                 successes += 1
 
             except Exception as e:
+                if reraise_exceptions:
+                    raise e
                 errors += 1
                 with open(f"output/error-{program_start}.log", "a") as f:
                     f.write(f"Error processing block {block_number} for pool {pool_addr}: {e}\n")
@@ -554,8 +568,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     only_unprocessed = True
-    output_dir = args.output_dir
-    os.makedirs(output_dir, exist_ok=True)
 
     print(f"Starting MEV Boost Data Metric Calculations with {args.n_cpus} CPUs")
 
@@ -579,13 +591,18 @@ if __name__ == "__main__":
             limit=chunk_size,
             offset=offset,
             process_id=i,
-            token_info=token_info,
+            all_token_info=token_info,
             mev_boost_values=mev_boost_values,
             only_unprocessed=only_unprocessed,
+            pull_latest_data=True,
+            reraise_exceptions=True,  # Set to True to debug
         )
 
-    # Create a pool of workers and map the function across the input values
-    with Pool(n_processes) as pool:
-        pool.map(run_chunk, range(n_processes))
+    if n_processes == 1:
+        run_chunk(0)
+    else:
+        # Create a pool of workers and map the function across the input values
+        with Pool(n_processes) as pool:
+            pool.map(run_chunk, range(n_processes))
 
     print("All processes completed.")
